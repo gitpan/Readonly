@@ -1,0 +1,23 @@
+Revision history for Perl extension Readonly.
+
+0.05  2002 March 15
+	- Change name from Constant.pm to Readonly.pm, due to file
+	  naming conflict under Windows.
+	- Changed docs to match.
+	- Allow Readonly::Hash to accept a hash reference parameter.
+	- Works better with older versions of Perl.
+	- Add many, many test cases to test.pl.
+
+0.04  2002 March 7
+	- Add top-level Scalar, Array, and Hash functions, so callers
+	  don't have to tie the variables themselves.
+
+0.03  2001 September 9
+	- documentation changes only.
+
+0.02  2001 September 9
+	- documentation changes only.
+
+0.01  2001 August 30
+	- Constant.pm, original version.
+
