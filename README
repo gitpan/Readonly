@@ -1,4 +1,4 @@
-Readonly version 0.05
+Readonly version 0.06
 =====================
 
 DESCRIPTION
@@ -18,6 +18,8 @@ limitations, however:
     Sometimes you have to be careful with your syntax when using them.
     You can't pass these constants around like variables (for example,
         you can't take references to them).
+    It is very difficult to make and use complex data structures with
+        use constant.
 
 Readonly.pm, by contrast:
 
@@ -25,6 +27,7 @@ Readonly.pm, by contrast:
     Creates variables that look and work like native perl variables.
     Creates global or lexical variables.
     Works at runtime or compile time.
+    Works with deep or shallow data structures.
 
 EXAMPLES OF USE
 
@@ -40,7 +43,7 @@ INSTALLATION
 
 To install this module, do the standard Perl module four-step:
 
-   perl Makefile.PL
+   perl Makefile.PL    or    perl Makefile.pl LIB='my/install/path'
    make
    make test
    make install
@@ -55,10 +58,12 @@ for a while.
 
 DEPENDENCIES
 
-None.  Well, Carp.pm and Exporter.pm, but they come with Perl.
+Test::Harness and Test::More, if you want to run the test suites (and
+yes, you should).  Also, Carp.pm and Exporter.pm, but they come with
+Perl.
 
 
-COPYRIGHT AND LICENCE
+COPYRIGHT AND LICENSE
 
 Eric J. Roode, eric@myxa.com
 

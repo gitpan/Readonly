@@ -2,7 +2,7 @@
 
 require 5.005;
 use strict;
-$Readonly::VERSION = 0.05;    # Also change in the documentation!
+$Readonly::VERSION = 0.06;    # Also change in the documentation!
 
 
 # ----------------
@@ -208,20 +208,29 @@ use Carp;
 use Exporter;
 use vars qw/@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS/;
 push @ISA, 'Exporter';
-push @EXPORT_OK, qw/Scalar Array Hash/;
+push @EXPORT, qw/Readonly/;
+push @EXPORT_OK, qw/Scalar Array Hash Tree/;
 
-sub Scalar ($$)
+# Predeclare the following, so we can use them recursively
+sub Scalar ($$);
+sub Array (\@;@);
+sub Hash (\%;@);
+
+
+sub Scalar1 ($$)
 	{
 	return tie $_[0], 'Readonly::Scalar', $_[1];
 	}
 
-sub Array (\@;@)
+# Shallow Readonly array
+sub Array1 (\@;@)
 	{
 	my $aref = shift;
 	return tie @$aref, 'Readonly::Array', @_;
 	}
 
-sub Hash (\%;@)
+# Shallow Readonly hash
+sub Hash1 (\%;@)
 	{
 	my $href = shift;
 
@@ -240,6 +249,100 @@ sub Hash (\%;@)
 	return tie %$href, 'Readonly::Hash', @_;
 	}
 
+sub Scalar ($$)
+	{
+	my $value = $_[1];
+
+	# Recursively check passed element for references; if any, make them Readonly
+	foreach ($value)
+		{
+		if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
+		elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
+		elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
+		}
+
+	return tie $_[0], 'Readonly::Scalar', $value;
+	}
+
+# Deep Readonly Array
+sub Array (\@;@)
+	{
+	my $aref = shift;
+	my @values = @_;
+
+	# Recursively check passed elements for references; if any, make them Readonly
+	foreach (@values)
+		{
+		if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
+		elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
+		elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
+		}
+	# Lastly, tie the passed reference
+	return tie @$aref, 'Readonly::Array', @values;
+	}
+
+# Deep Readonly Hash
+sub Hash (\%;@)
+	{
+	my $href = shift;
+	my @values = @_;
+
+	# If only one value, and it's a hashref, expand it
+	if (@_ == 1  &&  ref $_[0] eq 'HASH')
+		{
+		@values = %{$_[0]};
+		}
+
+	# otherwise, must have an even number of values
+	unless (@values %2 == 0)
+		{
+		croak "May not store an odd number of values in a hash";
+		}
+
+	# Recursively check passed elements for references; if any, make them Readonly
+	foreach (@values)
+		{
+		if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
+		elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
+		elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
+		}
+
+	return tie %$href, 'Readonly::Hash', @values;
+	}
+
+
+sub Readonly
+	{
+	if (ref $_[0] eq 'SCALAR')
+		{
+		croak "Readonly scalar must have only one value" if @_ > 2;
+		return tie ${$_[0]}, 'Readonly::Scalar', $_[1];
+		}
+	elsif (ref $_[0] eq 'ARRAY')
+		{
+		my $aref = shift;
+		return Array @$aref, @_;
+		}
+	elsif (ref $_[0] eq 'HASH')
+		{
+		my $href = shift;
+		if (@_%2 != 0  &&  !(@_ == 1  && ref $_[0] eq 'HASH'))
+			{
+			croak "May not store an odd number of values in a hash";
+			}
+		return Hash %$href, @_;
+		}
+	elsif (ref $_[0])
+		{
+		croak "Readonly only supports scalar, array, and hash variables.";
+		}
+	else
+		{
+		croak "First argument to Readonly must be a reference.";
+		}
+	}
+
+
 1;
 __END__
 
@@ -249,7 +352,7 @@ Readonly - Facility for creating read-only scalars, arrays, hashes.
 
 =head1 VERSION
 
-This documentation describes version 0.05 of Readonly.pm, March 15, 2002.
+This documentation describes version 0.06 of Readonly.pm, June 16, 2002.
 
 =head1 SYNOPSIS
 
@@ -279,11 +382,28 @@ This documentation describes version 0.05 of Readonly.pm, March 15, 2002.
  push @arr, 'seven';  # "Attempt to modify readonly array"
  delete $has{key};    # "Attempt to modify readonly hash"
 
+ # Alternate form:
+ Readonly    \$sca => $initial_value;
+ Readonly \my $sca => $initial_value;
+ Readonly    \@arr => @values;
+ Readonly \my @arr => @values;
+ Readonly    \%has => (key => value, key => value, ...);
+ Readonly \my %has => (key => value, key => value, ...);
+
 
 =head1 DESCRIPTION
 
-This is a facility for creating non-modifiable variables.
-This is useful for configuration files, headers, etc.
+This is a facility for creating non-modifiable variables.  This is
+useful for configuration files, headers, etc.  It can also be useful
+as a development and debugging tool, for catching updates to variables
+that should not be changed.
+
+If any of the values you pass to C<Scalar>, C<Array>, or C<Hash> are
+references, then those functions recurse over the data structures,
+marking everything as Readonly.  Usually, this is what you want: the
+entire structure nonmodifiable.  If you want only the top level to be
+Readonly, use the alternate C<Scalar1>, C<Array1> and C<Hash1>
+functions.
 
 
 =head1 COMPARISON WITH "use constant" OR TYPEGLOB CONSTANTS
@@ -296,14 +416,16 @@ Perl provides a facility for creating constant scalars, via the "use
 constant" pragma.  That built-in pragma creates only scalars and
 lists; it creates variables that have no leading $ character and which
 cannot be interpolated into strings.  It works only at compile
-time. You cannot take references to these constants.
+time. You cannot take references to these constants.  Also, it's
+rather difficult to make and use deep structures (complex data
+structures) with "use constant".
 
 =item *
 
 Another popular way to create read-only scalars is to modify the symbol
 table entry for the variable by using a typeglob:
 
- *a = \"value";
+ *a = \'value';
 
 This works fine, but it only works for global variables ("my"
 variables have no symbol table entry).  Also, the following similar
@@ -320,11 +442,30 @@ hashes, all of which look and work like normal, read-write Perl
 variables.  You can use them in scalar context, in list context; you
 can take references to them, pass them to functions, anything.
 
+Readonly.pm also works well with complex data structures, allowing you
+to tag the whole structure as nonmodifiable, or just the top level.
+
 However, Readonly.pm does impose a performance penalty.  This is
 probably not an issue for most configuration variables.  But benchmark
-your program if it might be.
+your program if it might be.  If it turns out to be a problem, you may
+still want to use Readonly.pm during development, to catch changes to
+variables that should not be changed, and then remove it for
+production:
+
+ # For testing:
+ Readonly::Scalar  $Foo_Directory => '/usr/local/foo';
+ Readonly::Scalar  $Bar_Directory => '/usr/local/bar';
+ # $Foo_Directory = '/usr/local/foo';
+ # $Bar_Directory = '/usr/local/bar';
+
+ # For production:
+ # Readonly::Scalar  $Foo_Directory => '/usr/local/foo';
+ # Readonly::Scalar  $Bar_Directory => '/usr/local/bar';
+ $Foo_Directory = '/usr/local/foo';
+ $Bar_Directory = '/usr/local/bar';
 
 =back 1
+
 
 =head1 FUNCTIONS
 
@@ -339,12 +480,26 @@ attempt to modify the value will cause your program to die.
 A value I<must> be supplied.  If you want the variable to have
 C<undef> as its value, you must specify C<undef>.
 
+If C<$value> is a reference to a scalar, array, or hash, then this
+function will mark the scalar, array, or hash it points to as being
+Readonly as well, and it will recursively traverse the structure,
+marking the whole thing as Readonly.  Usually, this is what you want.
+However, if you want only the C<$value> marked as Readonly, use
+C<Scalar1>.
+
 =item Readonly::Array @arr => (value, value, ...);
 
 Creates a nonmodifiable array, C<@arr>, and assigns the specified list
 of values to it.  Thereafter, none of its values may be changed; the
 array may not be lengthened or shortened or spliced.  Any attempt to
 do so will cause your program to die.
+
+If any of the values passed is a reference to a scalar, array, or hash, then
+this function will mark the scalar, array, or hash it points to as
+being Readonly as well, and it will recursively traverse the
+structure, marking the whole thing as Readonly.  Usually, this is what
+you want.  However, if you want only the hash C<%@arr> itself marked as
+Readonly, use C<Array1>.
 
 =item Readonly::Hash %h => (key => value, key => value, ...);
 
@@ -359,11 +514,55 @@ synopsis above), or a hash reference may be specified (curly braces in
 the synopsis above).  If a list is specified, it must have an even
 number of elements, or the function will die.
 
+If any of the values is a reference to a scalar, array, or hash, then
+this function will mark the scalar, array, or hash it points to as
+being Readonly as well, and it will recursively traverse the
+structure, marking the whole thing as Readonly.  Usually, this is what
+you want.  However, if you want only the hash C<%h> itself marked as
+Readonly, use C<Hash1>.
+
+=item Readonly \$var => $value;
+
+=item Readonly \@arr => (value, value, ...);
+
+=item Readonly \%h => (key => value, ...);
+
+=item Readonly \%h => {key => value, ...};
+
+The C<Readonly> function is an alternate to the C<Scalar>, C<Array>,
+and C<Hash> functions.  It has the advantage (if you consider it an
+advantage) of being one function.  That may make your program look
+neater, if you're initializing a whole bunch of constants at once.
+You may or may not prefer this uniform style.  It has the disadvantage
+of requiring a reference as its first parameter, so you have to supply
+a backslash.  You may or may not consider this ugly.
+
+=item Readonly::Scalar1 $var => $value;
+
+=item Readonly::Array1 @arr => (value, value, ...);
+
+=item Readonly::Hash1 %h => (key => value, key => value, ...);
+
+=item Readonly::Hash1 %h => {key => value, key => value, ...};
+
+These alternate functions create shallow Readonly variables, instead
+of deep ones.  For example:
+
+ Readonly::Array1 @shal => (1, 2, {perl=>'Rules', java=>'Bites'}, 4, 5);
+ Readonly::Array  @deep => (1, 2, {perl=>'Rules', java=>'Bites'}, 4, 5);
+
+ $shal[1] = 7;           # error
+ $shal[2]{APL}='Weird';  # Allowed! since the hash isn't Readonly
+ $deep[1] = 7;           # error
+ $deep[2]{APL}='Weird';  # error, since the hash is Readonly
+
+
 =back
+
 
 =head1 EXAMPLES
 
- # SCALARS: 
+ # SCALARS:
 
  # A plain old read-only value
  Readonly::Scalar $a => "A string value";
@@ -410,19 +609,34 @@ number of elements, or the function will die.
 
 =head1 EXPORTS
 
-By default, this module exports no symbols into the calling program's
-namespace.  The following symbols are available for import into your
-program, if you like:
+By default, this module exports the following symbol into the calling
+program's namespace:
 
- Scalar
- Array
- Hash
+ Readonly
+
+The following symbols are available for import into your program, if
+you like:
+
+ Scalar  Scalar1
+ Array   Array1
+ Hash    Hash1
+
 
 =head1 REQUIREMENTS
 
  Perl 5.005
  Carp.pm (included with Perl)
  Exporter.pm (included with Perl)
+
+
+=head1 ACKNOWLEDGEMENTS
+
+Thanks to Slaven Rezic for the idea of one common function (Readonly)
+for all three types of variables (13 April 2002).
+
+Thanks to Ernest Lergon for the idea (and initial code) for
+deeply-Readonly data structures (21 May 2002).
+
 
 =head1 AUTHOR / COPYRIGHT
 

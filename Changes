@@ -1,5 +1,13 @@
 Revision history for Perl extension Readonly.
 
+0.06  2002 June 16
+        - Add Readonly function, to provide a unified (and shorter) way to
+          create readonly variables. (Thanks to Slaven Rezic for the idea).
+        - Scalar, Array, and Hash now mark entire data structures as Readonly.
+          Added Scalar1, Array1, and Hash1 for shallow Readonly protection.
+          (Thanks to Ernest Lergon for the idea).
+        - Switch to Test::More and Test::Harness.  134 tests now!
+
 0.05  2002 March 15
 	- Change name from Constant.pm to Readonly.pm, due to file
 	  naming conflict under Windows.
@@ -20,4 +28,3 @@ Revision history for Perl extension Readonly.
 
 0.01  2001 August 30
 	- Constant.pm, original version.
-

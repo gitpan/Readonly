@@ -3,4 +3,11 @@ Makefile.PL
 MANIFEST
 README
 Readonly.pm
-test.pl
+t/array.t
+t/deepa.t
+t/deeph.t
+t/deeps.t
+t/docs.t
+t/hash.t
+t/readonly.t
+t/scalar.t
