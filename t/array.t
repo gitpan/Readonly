@@ -8,9 +8,15 @@ use Test::More tests => 23;
 # Find the module (1 test)
 BEGIN {use_ok('Readonly'); }
 
+sub expected
+{
+    my $line = shift;
+    $@ =~ s/\.$//;   # difference between croak and die
+    return "Modification of a read-only value attempted at " . __FILE__ . " line $line\n";
+}
+
 use vars qw/@a1 @a2/;
 my @ma1;
-my $err = qr/^Attempt to modify a readonly array/;
 
 # creation (3 tests)
 eval 'Readonly::Array @a1;';
@@ -32,17 +38,17 @@ is $#a2 => 4, 'Global last element (nonzero)';
 
 # store (2 tests)
 eval {$ma1[0] = 5;};
-like $@ => $err, 'Lexical store';
+is $@ => expected(__LINE__-1), 'Lexical store';
 eval {$a2[3] = 4;};
-like $@ => $err, 'Global store';
+is $@ => expected(__LINE__-1), 'Global store';
 
 # storesize (1 test)
 eval {$#a1 = 15;};
-like $@ => $err, 'Change size';
+is $@ => expected(__LINE__-1), 'Change size';
 
 # extend (1 test)
 eval {$a1[77] = 88;};
-like $@ => $err, 'Extend';
+is $@ => expected(__LINE__-1), 'Extend';
 
 # exists (2 tests)
 SKIP: {
@@ -54,31 +60,31 @@ SKIP: {
 
 # clear (1 test)
 eval {@a1 = ();};
-like $@ =>  $err, 'Clear';
+is $@ => expected(__LINE__-1), 'Clear';
 
 # push (1 test)
 eval {push @ma1, -1;};
-like $@ =>  $err, 'Push';
+is $@ => expected(__LINE__-1), 'Push';
 
 # unshift (1 test)
 eval {unshift @a2, -1;};
-like $@ =>  $err, 'Unshift';
+is $@ => expected(__LINE__-1), 'Unshift';
 
 # pop (1 test)
 eval {pop (@a2);};
-like $@ =>  $err, 'Pop';
+is $@ => expected(__LINE__-1), 'Pop';
 
 # shift (1 test)
 eval {shift (@a2);};
-like $@ =>  $err, 'shift';
+is $@ => expected(__LINE__-1), 'shift';
 
 # splice (1 test)
 eval {splice @a2, 0, 1;};
-like $@ =>  $err, 'Splice';
+is $@ => expected(__LINE__-1), 'Splice';
 
 # untie (1 test)
 SKIP: {
 	skip "Can't catch untie until Perl 5.6", 1  if $] <= 5.006;
 	eval {untie @a2;};
-	like $@ => $err, 'Untie';
+	is $@ => expected(__LINE__-1), 'Untie';
 	}

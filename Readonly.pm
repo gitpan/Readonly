@@ -2,14 +2,25 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
+=head1 NAME
+
+Readonly - Facility for creating read-only scalars, arrays, hashes.
+
+=head1 VERSION
+
+This documentation describes version 1.02 of Readonly.pm, May 3, 2003.
+
 =cut
 
-# Package for defining constants of various types
+# Rest of documentation is after __END__.
 
 use 5.000;
 use strict;
+use warnings;
+no warnings 'uninitialized';
+
 package Readonly;
-$Readonly::VERSION = 1.01;    # Also change in the documentation!
+$Readonly::VERSION = 1.02;    # Also change in the documentation!
 
 # Autocroak (Thanks, MJD)
 # Only load Carp.pm if module is croaking.
@@ -19,6 +30,21 @@ sub croak
     goto &Carp::croak;
 }
 
+# These functions may be overridden by Readonly::XS, if installed.
+sub is_sv_readonly   ($) { 0 }
+sub make_sv_readonly ($) { die "make_sv_readonly called but not overridden" }
+use vars qw/$XSokay/;     # Set to true in Readonly::XS, if available
+
+# Common error messages, or portions thereof
+use vars qw/$MODIFY $REASSIGN $ODDHASH/;
+$MODIFY   = 'Modification of a read-only value attempted';
+$REASSIGN = 'Attempt to reassign a readonly';
+$ODDHASH  = 'May not store an odd number of values in a hash';
+
+# See if we can use the XS stuff.
+$Readonly::XS::MAGIC_COOKIE = "Do NOT use or require Readonly::XS unless you're me.";
+eval 'use Readonly::XS';
+
 
 # ----------------
 # Read-only scalars
@@ -27,6 +53,8 @@ package Readonly::Scalar;
 
 sub TIESCALAR
 {
+    my $whence = (caller 2)[3];    # Check if naughty user is trying to tie directly.
+    Readonly::croak "Invalid tie"  unless $whence =~ /^Readonly::(?:Scalar1?|Readonly)$/;
     my $class = shift;
     Readonly::croak "No value specified for readonly scalar"        unless @_;
     Readonly::croak "Too many values specified for readonly scalar" unless @_ == 1;
@@ -42,7 +70,7 @@ sub FETCH
 }
 
 *STORE = *UNTIE =
-    sub {Readonly::croak "Attempt to modify a readonly scalar"};
+    sub {Readonly::croak $Readonly::MODIFY};
 
 
 # ----------------
@@ -52,6 +80,8 @@ package Readonly::Array;
 
 sub TIEARRAY
 {
+    my $whence = (caller 1)[3];    # Check if naughty user is trying to tie directly.
+    Readonly::croak "Invalid tie"  unless $whence =~ /^Readonly::Array1?$/;
     my $class = shift;
     my @self = @_;
 
@@ -83,7 +113,7 @@ BEGIN {
 }
 
 *STORE = *STORESIZE = *EXTEND = *PUSH = *POP = *UNSHIFT = *SHIFT = *SPLICE = *CLEAR = *UNTIE =
-    sub {Readonly::croak "Attempt to modify a readonly array"};
+    sub {Readonly::croak $Readonly::MODIFY};
 
 
 # ----------------
@@ -93,10 +123,12 @@ package Readonly::Hash;
 
 sub TIEHASH
 {
-    my $class = shift;
+    my $whence = (caller 1)[3];    # Check if naughty user is trying to tie directly.
+    Readonly::croak "Invalid tie"  unless $whence =~ /^Readonly::Hash1?$/;
 
+    my $class = shift;
     # must have an even number of values
-    Readonly::croak "May not store an odd number of values in a hash" unless (@_ %2 == 0);
+    Readonly::croak $Readonly::ODDHASH unless (@_ %2 == 0);
 
     my %self = @_;
     return bless \%self, $class;
@@ -131,7 +163,7 @@ sub NEXTKEY
 }
 
 *STORE = *DELETE = *CLEAR = *UNTIE =
-    sub {Readonly::croak "Attempt to modify a readonly hash"};
+    sub {Readonly::croak $Readonly::MODIFY};
 
 
 # ----------------------------------------------------------------
@@ -154,7 +186,7 @@ sub Hash (\%;@);
 # Used to prevent reassignment of Readonly variables.
 sub _is_badtype
 {
-    my $type = shift;
+    my $type = $_[0];
     return lc $type if $type =~ s/^Readonly:://;
     return;
 }
@@ -162,17 +194,33 @@ sub _is_badtype
 # Shallow Readonly scalar
 sub Scalar1 ($$)
 {
+    croak "$REASSIGN scalar" if is_sv_readonly $_[0];
     my $badtype = _is_badtype (ref tied $_[0]);
-    croak "Attempt to reassign readonly $badtype" if $badtype;
+    croak "$REASSIGN $badtype" if $badtype;
 
-    return tie $_[0], 'Readonly::Scalar', $_[1];
+    # xs method: flag scalar as readonly
+    if ($XSokay)
+    {
+        $_[0] = $_[1];
+        make_sv_readonly $_[0];
+        return;
+    }
+
+    # pure-perl method: tied scalar
+    my $tieobj = eval {tie $_[0], 'Readonly::Scalar', $_[1]};
+    if ($@)
+    {
+        croak "$REASSIGN scalar" if substr($@,0,43) eq $MODIFY;
+        die $@;    # some other error?
+    }
+    return $tieobj;
 }
 
 # Shallow Readonly array
 sub Array1 (\@;@)
 {
     my $badtype = _is_badtype (ref tied $_[0]);
-    croak "Attempt to reassign readonly $badtype" if $badtype;
+    croak "$REASSIGN $badtype" if $badtype;
 
     my $aref = shift;
     return tie @$aref, 'Readonly::Array', @_;
@@ -182,7 +230,7 @@ sub Array1 (\@;@)
 sub Hash1 (\%;@)
 {
     my $badtype = _is_badtype (ref tied $_[0]);
-    croak "Attempt to reassign readonly $badtype" if $badtype;
+    croak "$REASSIGN $badtype" if $badtype;
 
     my $href = shift;
 
@@ -193,7 +241,7 @@ sub Hash1 (\%;@)
     }
 
     # otherwise, must have an even number of values
-    croak "May not store an odd number of values in a hash" unless (@_%2 == 0);
+    croak $ODDHASH unless (@_%2 == 0);
 
     return tie %$href, 'Readonly::Hash', @_;
 }
@@ -201,8 +249,9 @@ sub Hash1 (\%;@)
 # Deep Readonly scalar
 sub Scalar ($$)
 {
+    croak "$REASSIGN scalar" if is_sv_readonly $_[0];
     my $badtype = _is_badtype (ref tied $_[0]);
-    croak "Attempt to reassign readonly $badtype" if $badtype;
+    croak "$REASSIGN $badtype" if $badtype;
 
     my $value = $_[1];
 
@@ -211,17 +260,32 @@ sub Scalar ($$)
     {
         if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
         elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
-        elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
+        elsif (ref eq 'HASH')   {Hash   my %v =>  $_; $_ = \%v}
     }
 
-    return tie $_[0], 'Readonly::Scalar', $value;
+    # xs method: flag scalar as readonly
+    if ($XSokay)
+    {
+        $_[0] = $value;
+        make_sv_readonly $_[0];
+        return;
+    }
+
+    # pure-perl method: tied scalar
+    my $tieobj = eval {tie $_[0], 'Readonly::Scalar', $value};
+    if ($@)
+    {
+        croak "$REASSIGN scalar" if substr($@,0,43) eq $MODIFY;
+        die $@;    # some other error?
+    }
+    return $tieobj;
 }
 
 # Deep Readonly array
 sub Array (\@;@)
 {
     my $badtype = _is_badtype (ref tied @{$_[0]});
-    croak "Attempt to reassign readonly $badtype" if $badtype;
+    croak "$REASSIGN $badtype" if $badtype;
 
     my $aref = shift;
     my @values = @_;
@@ -241,7 +305,7 @@ sub Array (\@;@)
 sub Hash (\%;@)
 {
     my $badtype = _is_badtype (ref tied %{$_[0]});
-    croak "Attempt to reassign readonly $badtype" if $badtype;
+    croak "$REASSIGN $badtype" if $badtype;
 
     my $href = shift;
     my @values = @_;
@@ -253,7 +317,7 @@ sub Hash (\%;@)
     }
 
     # otherwise, must have an even number of values
-    croak "May not store an odd number of values in a hash" unless (@values %2 == 0);
+    croak $ODDHASH unless (@values %2 == 0);
 
     # Recursively check passed elements for references; if any, make them Readonly
     foreach (@values)
@@ -272,10 +336,19 @@ sub Readonly
 {
     if (ref $_[0] eq 'SCALAR')
     {
+        croak $MODIFY if is_sv_readonly ${$_[0]};
         my $badtype = _is_badtype (ref tied ${$_[0]});
-        croak "Attempt to reassign readonly $badtype" if $badtype;
+        croak "$REASSIGN $badtype" if $badtype;
         croak "Readonly scalar must have only one value" if @_ > 2;
-        return tie ${$_[0]}, 'Readonly::Scalar', $_[1];
+
+        my $tieobj = eval {tie ${$_[0]}, 'Readonly::Scalar', $_[1]};
+        # Tie may have failed because user tried to tie a constant, or we screwed up somehow.
+        if ($@)
+        {
+            croak $MODIFY if $@ =~ /^$MODIFY at/;    # Point the finger at the user.
+            die "$@\n";        # Not a modify read-only message; must be our fault.
+        }
+        return $tieobj;
     }
     elsif (ref $_[0] eq 'ARRAY')
     {
@@ -285,10 +358,7 @@ sub Readonly
     elsif (ref $_[0] eq 'HASH')
     {
         my $href = shift;
-        if (@_%2 != 0  &&  !(@_ == 1  && ref $_[0] eq 'HASH'))
-        {
-            croak "May not store an odd number of values in a hash";
-        }
+        croak $ODDHASH  if @_%2 != 0  &&  !(@_ == 1  && ref $_[0] eq 'HASH');
         return Hash %$href, @_;
     }
     elsif (ref $_[0])
@@ -304,14 +374,6 @@ sub Readonly
 
 1;
 __END__
-
-=head1 NAME
-
-Readonly - Facility for creating read-only scalars, arrays, hashes.
-
-=head1 VERSION
-
-This documentation describes version 1.01 of Readonly.pm, February 14, 2003.
 
 =head1 SYNOPSIS
 
@@ -337,9 +399,10 @@ This documentation describes version 1.01 of Readonly.pm, February 14, 2003.
  next if $has{$some_key};
 
  # But if you try to modify a value, your program will die:
- $sca = 7;            # "Attempt to modify readonly scalar"
- push @arr, 'seven';  # "Attempt to modify readonly array"
- delete $has{key};    # "Attempt to modify readonly hash"
+ $sca = 7;
+ push @arr, 'seven';
+ delete $has{key};
+# The error message is "Modification of a read-only value attempted"
 
  # Alternate form:
  Readonly    \$sca => $initial_value;
@@ -364,31 +427,36 @@ entire structure nonmodifiable.  If you want only the top level to be
 Readonly, use the alternate C<Scalar1>, C<Array1> and C<Hash1>
 functions.
 
+Please note that most users of Readonly will also want to install a
+companion module Readonly::XS.  See the L</CONS> section below for more
+details.
 
-=head1 COMPARISON WITH "use constant" OR TYPEGLOB CONSTANTS
-
-=over 1
-
-=item *
+=head1 COMPARISON WITH "use constant"
 
 Perl provides a facility for creating constant values, via the "use
 constant" pragma.  There are several problems with this pragma.
 
 =over 2
 
-=item
+=item *
 
-1. The constants created have no leading $ or @ character.
+The constants created have no leading $ or @ character.
 
-2. These constants cannot be interpolated into strings.
+=item *
 
-3. Syntax can get dicey sometimes.  For example:
+These constants cannot be interpolated into strings.
+
+=item *
+
+Syntax can get dicey sometimes.  For example:
 
  use constant CARRAY => (2, 3, 5, 7, 11, 13);
  $a_prime = CARRAY[2];        # wrong!
  $a_prime = (CARRAY)[2];      # right -- MUST use parentheses
 
-4. You have to be very careful in places where barewords are allowed.
+=item *
+
+You have to be very careful in places where barewords are allowed.
 For example:
 
  use constant SOME_KEY => 'key';
@@ -396,29 +464,39 @@ For example:
  $some_value = $hash{SOME_KEY};        # wrong!
  $some_value = $hash{+SOME_KEY};       # right
 
-(who thinks to use a unary plus when using a hash??)
+(who thinks to use a unary plus when using a hash?)
 
-5. C<use constant> works for scalars and arrays, not hashes.
+=item *
 
-6. These constants are global ot the package in which they're declared;
+C<use constant> works for scalars and arrays, not hashes.
+
+=item *
+
+These constants are global ot the package in which they're declared;
 cannot be lexically scoped.
 
-7. Works only at compile time.
+=item *
 
-8. Can be overridden:
+Works only at compile time.
+
+=item *
+
+Can be overridden:
 
  use constant PI => 3.14159;
  ...
  use constant PI => 2.71828;
 
-(this does generate a warning, however).
+(this does generate a warning, however, if you have warnings enabled).
 
-9. Very difficult to make and use deep structures (complex data
+=item *
+
+It is very difficult to make and use deep structures (complex data
 structures) with C<use constant>.
 
 =back
 
-=item *
+=head1 COMPARISON WITH TYPEGLOB CONSTANTS
 
 Another popular way to create read-only scalars is to modify the symbol
 table entry for the variable by using a typeglob:
@@ -432,7 +510,7 @@ constructs do B<not> work:
  *a = [1, 2, 3];      # Does NOT create a read-only array
  *a = { a => 'A'};    # Does NOT create a read-only hash
 
-=item *
+=head1 PROS
 
 Readonly.pm, on the other hand, will work with global variables and
 with lexical ("my") variables.  It will create scalars, arrays, or
@@ -450,12 +528,28 @@ will die:
  ...
  Readonly::Scalar $pi => 2.71828;
 
-(There is currently a way to sneak around this, by bypassing the
-published interface and C<tie>-ing the variables directly).
+=head1 CONS
 
-However, Readonly.pm does impose a performance penalty.  This is
-probably not an issue for most configuration variables.  But benchmark
-your program if it might be.  If it turns out to be a problem, you may
+Readonly.pm does impose a performance penalty.  It's pretty slow.  How
+slow?  Run the C<benchmark.pl> script that comes with Readonly.  On my
+test system, "use constant", typeglob constants, and regular
+read/write Perl variables were all about the same speed, and
+Readonly.pm constants were about 1/20 the speed.
+
+However, there is relief.  There is a companion module available,
+Readonly::XS.  If it is installed on your system, Readonly.pm uses it
+to make read-only scalars much faster.  With Readonly::XS, Readonly
+scalars are as fast as the other types of variables.  Readonly arrays
+and hashes will still be relatively slow.  But it's likely that most
+of your Readonly variables will be scalars.
+
+If you can't use Readonly::XS (for example, if you don't have a C
+compiler, or your perl is statically linked and you don't want to
+re-link it), you have to decide whether the benefits of Readonly
+variables outweigh the speed issue. For most configuration variables
+(and other things that Readonly is likely to be useful for), the speed
+issue is probably not really a big problem.  But benchmark your
+program if it might be.  If it turns out to be a problem, you may
 still want to use Readonly.pm during development, to catch changes to
 variables that should not be changed, and then remove it for
 production:
@@ -471,8 +565,6 @@ production:
  # Readonly::Scalar  $Bar_Directory => '/usr/local/bar';
  $Foo_Directory = '/usr/local/foo';
  $Bar_Directory = '/usr/local/bar';
-
-=back 1
 
 
 =head1 FUNCTIONS
@@ -512,7 +604,7 @@ structure, marking the whole thing as Readonly.  Usually, this is what
 you want.  However, if you want only the hash C<%@arr> itself marked as
 Readonly, use C<Array1>.
 
-If $var is already a Readonly variable, the program will die with
+If @arr is already a Readonly variable, the program will die with
 an error about reassigning Readonly variables.
 
 =item Readonly::Hash %h => (key => value, key => value, ...);
@@ -535,7 +627,7 @@ structure, marking the whole thing as Readonly.  Usually, this is what
 you want.  However, if you want only the hash C<%h> itself marked as
 Readonly, use C<Hash1>.
 
-If $var is already a Readonly variable, the program will die with
+If %h is already a Readonly variable, the program will die with
 an error about reassigning Readonly variables.
 
 =item Readonly \$var => $value;
@@ -645,6 +737,7 @@ you like:
  Carp.pm (included with Perl)
  Exporter.pm (included with Perl)
 
+ Readonly::XS is recommended but not required.
 
 =head1 ACKNOWLEDGEMENTS
 
@@ -657,7 +750,7 @@ deeply-Readonly data structures (21 May 2002).
 
 =head1 AUTHOR / COPYRIGHT
 
-Eric J. Roode, sdn@comcast.net
+Eric J. Roode, roode@cpan.org
 
 Copyright (c) 2001-2003 by Eric J. Roode. All Rights Reserved.  This module
 is free software; you can redistribute it and/or modify it under the
@@ -667,6 +760,10 @@ If you have suggestions for improvement, please drop me a line.  If
 you make improvements to this software, I ask that you please send me
 a copy of your changes. Thanks.
 
+Readonly.pm is made from 100% recycled electrons.  No animals were
+harmed during the development and testing of this module.  Not sold in
+stores!  Readonly::XS sold separately.  Void where prohibited.
+
 =cut
 
 =begin gpg
@@ -674,9 +771,9 @@ a copy of your changes. Thanks.
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.1 (GNU/Linux)
 
-iD8DBQE+TPhnY96i4h5M0egRAnwOAKCeW8AXHTHg7rm0K4s50+jagcScHwCbBnoW
-8QbyY4qBDjptxw/dXRxm7RE=
-=WE1e
+iD8DBQE+wOPKY96i4h5M0egRAj9vAKCTxpwmJY5mqIVIB4xOZvxSZ9ESIgCgiwhU
+EKyBFp7cmyz4oDG0U+2WS4Q=
+=X0Nn
 -----END PGP SIGNATURE-----
 
 =end gpg

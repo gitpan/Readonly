@@ -1,5 +1,19 @@
 Revision history for Perl extension Readonly.
 
+1.02  2003 May 13
+	- If Readonly::XS is installed, Readonly will use it for
+	   making scalars read-only.
+	- Callers are now forbidden to tie variables directly.  This
+	   prevents sneaky callers from reassigning a variable via
+	   tie.
+	- Error messages have been changed to be more like Perl's
+	   own "Modification of a read-only value attempted at..."
+	- Catch and return an error if user tries to pass a constant
+	  to Readonly::Scalar (eg Readonly::Scalar 'hello', 'goodbye')
+	- Include a simple benchmark script.
+	- Add a few more test cases.  You can never have too many.
+	- Add a simple benchmark program.
+
 1.01  2003 February 14
 	- Add some checking to prevent reassignment of Readonly variables.
 	- Changed my email address in the docs.

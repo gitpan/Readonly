@@ -1,5 +1,15 @@
-Readonly version 1.01
+Readonly version 1.02
 =====================
+
+CHANGES FROM VERSION 1.01  (See "Changes" file for details)
+
+o Vast speed improvements for scalar variables, if the companion
+  module Readonly::XS (available separately on CPAN) is installed.
+
+o Handles certain invalid user actions better.
+
+o Error messages have changed to be more like Perl's.
+
 
 DESCRIPTION
 
@@ -21,7 +31,8 @@ limitations, however:
         you can't take references to them).
     It is rather difficult to make and use complex data structures with
         use constant.
-    They can be overridden by subsequent "use constant" directives.
+    "use constant" directives can be overridden by subsequent "use
+        constant" directives. (this does generate a warning).
 
 Readonly.pm, by contrast:
 
@@ -58,29 +69,22 @@ To install this module, do the standard Perl module four-step:
    make install
 
 
-DEVELOPMENT STATE
-
-No bugs have been reported, or suggestions received, for the past six
-months.  This either means that the module is good as-is, or that
-nobody in the world is using it.  :-) Either way, it's safe to change
-the version number to 1.00 and call it "released".
-
-I am considering adding a Readonly "attribute" for use with the
-Attribute::Handlers module.  Other than that, which would be optional
-(perhaps a separate module), no additions or changes to this module
-are planned at this time.
-
-
 DEPENDENCIES
 
 Test::Harness and Test::More, if you want to run the test suites (and
 yes, you should).  Also, Carp.pm and Exporter.pm, but they come with
 Perl.
 
+Readonly::XS (available on CPAN) is a companion module to Readonly.
+If that module is present, Readonly will use it for handling scalars.
+This results in a significant speed improvement.  This is transparent
+to your code; whether or not the XS module is present, Readonly works
+the same.
+
 
 COPYRIGHT AND LICENSE
 
-Eric J. Roode, sdn@comcast.net
+Eric J. Roode, roode@cpan.org
 
 Copyright (c) 2001-2003 by Eric J. Roode. All Rights Reserved.  This module
 is free software; you can redistribute it and/or modify it under the

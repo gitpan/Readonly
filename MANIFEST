@@ -3,6 +3,7 @@ Makefile.PL
 MANIFEST
 README
 Readonly.pm
+benchmark.pl
 t/array.t
 t/deepa.t
 t/deeph.t
@@ -13,3 +14,4 @@ t/readonly.t
 t/reassign.t
 t/scalar.t
 t/export.t
+t/tie.t
