@@ -1,4 +1,4 @@
-Readonly version 1.00
+Readonly version 1.01
 =====================
 
 DESCRIPTION
@@ -10,8 +10,8 @@ Perl provides a built-in mechanism (the "use constant" pragma) to
 create constant scalars and lists.  That mechanism has several
 limitations, however:
 
-    It creates only scalars and lists (not arrays, not hashes).
-    It creates "variables" that have no leading $ character.
+    It creates only scalars and arrays (not hashes).
+    It creates "variables" that have no leading $ or @ character.
     The variables it creates cannot be interpolated into strings.
     It works only at compile time.
     The variables it creates are global, never lexical.
@@ -19,8 +19,9 @@ limitations, however:
         (for example, when using one as a hash key).
     You can't pass these constants around like variables (for example,
         you can't take references to them).
-    It is very difficult to make and use complex data structures with
+    It is rather difficult to make and use complex data structures with
         use constant.
+    They can be overridden by subsequent "use constant" directives.
 
 Readonly.pm, by contrast:
 
@@ -29,6 +30,7 @@ Readonly.pm, by contrast:
     Creates global or lexical variables.
     Works at runtime or compile time.
     Works with deep or shallow data structures.
+    Prevents reassignment of Readonly variables.
 
 EXAMPLES OF USE
 
@@ -78,7 +80,7 @@ Perl.
 
 COPYRIGHT AND LICENSE
 
-Eric J. Roode, eric@myxa.com
+Eric J. Roode, sdn@comcast.net
 
 Copyright (c) 2001-2003 by Eric J. Roode. All Rights Reserved.  This module
 is free software; you can redistribute it and/or modify it under the

@@ -6,10 +6,10 @@ Hash: SHA1
 
 # Package for defining constants of various types
 
-use 5.005;
+use 5.000;
 use strict;
 package Readonly;
-$Readonly::VERSION = 1.00;    # Also change in the documentation!
+$Readonly::VERSION = 1.01;    # Also change in the documentation!
 
 # Autocroak (Thanks, MJD)
 # Only load Carp.pm if module is croaking.
@@ -150,16 +150,30 @@ sub Scalar ($$);
 sub Array (\@;@);
 sub Hash (\%;@);
 
+# Returns true if a string begins with "Readonly::"
+# Used to prevent reassignment of Readonly variables.
+sub _is_badtype
+{
+    my $type = shift;
+    return lc $type if $type =~ s/^Readonly:://;
+    return;
+}
 
 # Shallow Readonly scalar
 sub Scalar1 ($$)
 {
+    my $badtype = _is_badtype (ref tied $_[0]);
+    croak "Attempt to reassign readonly $badtype" if $badtype;
+
     return tie $_[0], 'Readonly::Scalar', $_[1];
 }
 
 # Shallow Readonly array
 sub Array1 (\@;@)
 {
+    my $badtype = _is_badtype (ref tied $_[0]);
+    croak "Attempt to reassign readonly $badtype" if $badtype;
+
     my $aref = shift;
     return tie @$aref, 'Readonly::Array', @_;
 }
@@ -167,6 +181,9 @@ sub Array1 (\@;@)
 # Shallow Readonly hash
 sub Hash1 (\%;@)
 {
+    my $badtype = _is_badtype (ref tied $_[0]);
+    croak "Attempt to reassign readonly $badtype" if $badtype;
+
     my $href = shift;
 
     # If only one value, and it's a hashref, expand it
@@ -184,6 +201,9 @@ sub Hash1 (\%;@)
 # Deep Readonly scalar
 sub Scalar ($$)
 {
+    my $badtype = _is_badtype (ref tied $_[0]);
+    croak "Attempt to reassign readonly $badtype" if $badtype;
+
     my $value = $_[1];
 
     # Recursively check passed element for references; if any, make them Readonly
@@ -200,6 +220,9 @@ sub Scalar ($$)
 # Deep Readonly array
 sub Array (\@;@)
 {
+    my $badtype = _is_badtype (ref tied @{$_[0]});
+    croak "Attempt to reassign readonly $badtype" if $badtype;
+
     my $aref = shift;
     my @values = @_;
 
@@ -217,6 +240,9 @@ sub Array (\@;@)
 # Deep Readonly hash
 sub Hash (\%;@)
 {
+    my $badtype = _is_badtype (ref tied %{$_[0]});
+    croak "Attempt to reassign readonly $badtype" if $badtype;
+
     my $href = shift;
     my @values = @_;
 
@@ -246,6 +272,8 @@ sub Readonly
 {
     if (ref $_[0] eq 'SCALAR')
     {
+        my $badtype = _is_badtype (ref tied ${$_[0]});
+        croak "Attempt to reassign readonly $badtype" if $badtype;
         croak "Readonly scalar must have only one value" if @_ > 2;
         return tie ${$_[0]}, 'Readonly::Scalar', $_[1];
     }
@@ -283,7 +311,7 @@ Readonly - Facility for creating read-only scalars, arrays, hashes.
 
 =head1 VERSION
 
-This documentation describes version 1.00 of Readonly.pm, January 7, 2003.
+This documentation describes version 1.01 of Readonly.pm, February 14, 2003.
 
 =head1 SYNOPSIS
 
@@ -343,13 +371,52 @@ functions.
 
 =item *
 
-Perl provides a facility for creating constant scalars, via the "use
-constant" pragma.  That built-in pragma creates only scalars and
-lists; it creates variables that have no leading $ character and which
-cannot be interpolated into strings.  It works only at compile
-time. You cannot take references to these constants.  Also, it's
-rather difficult to make and use deep structures (complex data
-structures) with "use constant".
+Perl provides a facility for creating constant values, via the "use
+constant" pragma.  There are several problems with this pragma.
+
+=over 2
+
+=item
+
+1. The constants created have no leading $ or @ character.
+
+2. These constants cannot be interpolated into strings.
+
+3. Syntax can get dicey sometimes.  For example:
+
+ use constant CARRAY => (2, 3, 5, 7, 11, 13);
+ $a_prime = CARRAY[2];        # wrong!
+ $a_prime = (CARRAY)[2];      # right -- MUST use parentheses
+
+4. You have to be very careful in places where barewords are allowed.
+For example:
+
+ use constant SOME_KEY => 'key';
+ %hash = (key => 'value', other_key => 'other_value');
+ $some_value = $hash{SOME_KEY};        # wrong!
+ $some_value = $hash{+SOME_KEY};       # right
+
+(who thinks to use a unary plus when using a hash??)
+
+5. C<use constant> works for scalars and arrays, not hashes.
+
+6. These constants are global ot the package in which they're declared;
+cannot be lexically scoped.
+
+7. Works only at compile time.
+
+8. Can be overridden:
+
+ use constant PI => 3.14159;
+ ...
+ use constant PI => 2.71828;
+
+(this does generate a warning, however).
+
+9. Very difficult to make and use deep structures (complex data
+structures) with C<use constant>.
+
+=back
 
 =item *
 
@@ -375,6 +442,16 @@ can take references to them, pass them to functions, anything.
 
 Readonly.pm also works well with complex data structures, allowing you
 to tag the whole structure as nonmodifiable, or just the top level.
+
+Also, Readonly variables may not be reassigned.  The following code
+will die:
+
+ Readonly::Scalar $pi => 3.14159;
+ ...
+ Readonly::Scalar $pi => 2.71828;
+
+(There is currently a way to sneak around this, by bypassing the
+published interface and C<tie>-ing the variables directly).
 
 However, Readonly.pm does impose a performance penalty.  This is
 probably not an issue for most configuration variables.  But benchmark
@@ -418,6 +495,9 @@ marking the whole thing as Readonly.  Usually, this is what you want.
 However, if you want only the C<$value> marked as Readonly, use
 C<Scalar1>.
 
+If $var is already a Readonly variable, the program will die with
+an error about reassigning Readonly variables.
+
 =item Readonly::Array @arr => (value, value, ...);
 
 Creates a nonmodifiable array, C<@arr>, and assigns the specified list
@@ -431,6 +511,9 @@ being Readonly as well, and it will recursively traverse the
 structure, marking the whole thing as Readonly.  Usually, this is what
 you want.  However, if you want only the hash C<%@arr> itself marked as
 Readonly, use C<Array1>.
+
+If $var is already a Readonly variable, the program will die with
+an error about reassigning Readonly variables.
 
 =item Readonly::Hash %h => (key => value, key => value, ...);
 
@@ -451,6 +534,9 @@ being Readonly as well, and it will recursively traverse the
 structure, marking the whole thing as Readonly.  Usually, this is what
 you want.  However, if you want only the hash C<%h> itself marked as
 Readonly, use C<Hash1>.
+
+If $var is already a Readonly variable, the program will die with
+an error about reassigning Readonly variables.
 
 =item Readonly \$var => $value;
 
@@ -555,7 +641,7 @@ you like:
 
 =head1 REQUIREMENTS
 
- Perl 5.005
+ Perl 5.000
  Carp.pm (included with Perl)
  Exporter.pm (included with Perl)
 
@@ -571,7 +657,7 @@ deeply-Readonly data structures (21 May 2002).
 
 =head1 AUTHOR / COPYRIGHT
 
-Eric J. Roode, eric@myxa.com
+Eric J. Roode, sdn@comcast.net
 
 Copyright (c) 2001-2003 by Eric J. Roode. All Rights Reserved.  This module
 is free software; you can redistribute it and/or modify it under the
@@ -586,11 +672,11 @@ a copy of your changes. Thanks.
 =begin gpg
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (SunOS)
+Version: GnuPG v1.2.1 (GNU/Linux)
 
-iD8DBQE+G0vcY96i4h5M0egRAnYbAJ9wNdqrZpED+u+/g8p1sfIwa1ueSwCg14jK
-TTZmk/vw+Vly+21P74Ra+lc=
-=jmoW
+iD8DBQE+TPhnY96i4h5M0egRAnwOAKCeW8AXHTHg7rm0K4s50+jagcScHwCbBnoW
+8QbyY4qBDjptxw/dXRxm7RE=
+=WE1e
 -----END PGP SIGNATURE-----
 
 =end gpg

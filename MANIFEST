@@ -10,5 +10,6 @@ t/deeps.t
 t/docs.t
 t/hash.t
 t/readonly.t
+t/reassign.t
 t/scalar.t
 t/export.t

@@ -8,47 +8,47 @@ use Test::More tests => 22;
 # Find the module (1 test)
 BEGIN {use_ok('Readonly'); }
 
-my ($a, @a, %a);
+my ($a1, $a2, @a1, @a2, @a3, @a4, @a5, @a6, %a1, %a2, %a3, %a4, %a5);
 my $err = qr/^Attempt to modify a readonly/;
 
-eval 'Readonly::Scalar $a => "A string value";';
+eval 'Readonly::Scalar $a1 => "A string value";';
 is $@ => '', 'A string value';
 
 my $computed_value = 5 + 5;
-eval 'Readonly::Scalar $a => $computed_value;';
+eval 'Readonly::Scalar $a2 => $computed_value;';
 is $@ => '', 'Scalar computed value';
 
-eval 'Readonly::Array @a => (1, 2, 3, 4);';
+eval 'Readonly::Array @a1 => (1, 2, 3, 4);';
 is $@ => '', 'Array, with parens';
 
-eval 'Readonly::Array @a => 1, 2, 3, 4;';
+eval 'Readonly::Array @a2 => 1, 2, 3, 4;';
 is $@ => '', 'Array, without parens';
 
-eval 'Readonly::Array @a => qw/1 2 3 4/;';
+eval 'Readonly::Array @a3 => qw/1 2 3 4/;';
 is $@ => '', 'Array, with qw';
 
 my @computed_values = qw/a b c d e f/;
-eval 'Readonly::Array @a => @computed_values;';
+eval 'Readonly::Array @a4 => @computed_values;';
 is $@ => '', 'Array, with computed values';
 
-eval 'Readonly::Array @a => ();';
+eval 'Readonly::Array @a5 => ();';
 is $@ => '', 'Empty array 1';
-eval 'Readonly::Array @a;';
+eval 'Readonly::Array @a6;';
 is $@ => '', 'Empty array 2';
 
-eval 'Readonly::Hash %a => (key1 => "value1", key2 => "value2");';
+eval 'Readonly::Hash %a1 => (key1 => "value1", key2 => "value2");';
 is $@ => '', 'Hash constant';
 
 my %computed_values = qw/a A b B c C d D/;
-eval 'Readonly::Hash %a => %computed_values;';
+eval 'Readonly::Hash %a2 => %computed_values;';
 is $@ => '', 'Hash, computed values';
 
-eval 'Readonly::Hash %a => ();';
+eval 'Readonly::Hash %a3 => ();';
 is $@ => '', 'Empty hash 1';
-eval 'Readonly::Hash %a;';
+eval 'Readonly::Hash %a4;';
 is $@ => '', 'Empty hash 2';
 
-eval 'Readonly::Hash %a => (key1 => "value1", "value2");';
+eval 'Readonly::Hash %a5 => (key1 => "value1", "value2");';
 like $@, qr/odd number of values/, 'Odd number of values';
 
 # Shallow vs deep (8 tests)

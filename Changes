@@ -1,5 +1,9 @@
 Revision history for Perl extension Readonly.
 
+1.01  2003 February 14
+	- Add some checking to prevent reassignment of Readonly variables.
+	- Changed my email address in the docs.
+
 1.00  2003 January 7
 	- No code changes.  No bugs or suggestions have been reported
 	  for six months, so the version number is changing to 1.00.
