@@ -11,3 +11,4 @@ t/docs.t
 t/hash.t
 t/readonly.t
 t/scalar.t
+t/export.t

@@ -1,5 +1,10 @@
 Revision history for Perl extension Readonly.
 
+0.07  2002 June 25
+	- Clean up the code somewhat; remove redundancies; delay
+	   loading Carp.pm until it's needed.
+	- Fixed the list of EXPORT_OK symbols.
+
 0.06  2002 June 16
         - Add Readonly function, to provide a unified (and shorter) way to
           create readonly variables. (Thanks to Slaven Rezic for the idea).

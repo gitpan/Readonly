@@ -1,202 +1,131 @@
 # Package for defining constants of various types
 
-require 5.005;
+use 5.005;
 use strict;
-$Readonly::VERSION = 0.06;    # Also change in the documentation!
+package Readonly;
+$Readonly::VERSION = 0.07;    # Also change in the documentation!
+
+# Autocroak (Thanks, MJD)
+# Only load Carp.pm if module is croaking.
+sub croak
+{
+    require Carp;
+    goto &Carp::croak;
+}
 
 
 # ----------------
 # Read-only scalars
 # ----------------
 package Readonly::Scalar;
-use Carp;
 
 sub TIESCALAR
-	{
-	my $class = shift;
-	unless (@_)
-		{
-		croak "No value specified for readonly scalar";
-		}
-	unless (@_ == 1)
-		{
-		croak "Too many values specified for readonly scalar";
-		}
-	my $value = shift;
+{
+    my $class = shift;
+    Readonly::croak "No value specified for readonly scalar"        unless @_;
+    Readonly::croak "Too many values specified for readonly scalar" unless @_ == 1;
 
-	return bless \$value, $class;
-	}
+    my $value = shift;
+    return bless \$value, $class;
+}
 
 sub FETCH
-	{
-	my $self = shift;
-	return $$self;
-	}
+{
+    my $self = shift;
+    return $$self;
+}
 
-sub STORE
-	{
-	croak "Attempt to modify a readonly scalar";
-	}
-
-sub UNTIE
-	{
-	croak "Attempt to modify a readonly scalar";
-	}
+*STORE = *UNTIE =
+    sub {Readonly::croak "Attempt to modify a readonly scalar"};
 
 
 # ----------------
 # Read-only arrays
 # ----------------
 package Readonly::Array;
-use Carp;
 
 sub TIEARRAY
-	{
-	my $class = shift;
-	my @self = @_;
+{
+    my $class = shift;
+    my @self = @_;
 
-	return bless \@self, $class;
-	}
+    return bless \@self, $class;
+}
 
 sub FETCH
-	{
-	my $self  = shift;
-	my $index = shift;
-	return $self->[$index];
-	}
-
-sub STORE
-	{
-	croak "Attempt to modify a readonly array";
-	}
+{
+    my $self  = shift;
+    my $index = shift;
+    return $self->[$index];
+}
 
 sub FETCHSIZE
-	{
-	my $self = shift;
-	return scalar @$self;
-	}
+{
+    my $self = shift;
+    return scalar @$self;
+}
 
-sub STORESIZE
-	{
-	croak "Attempt to modify a readonly array";
-	}
+BEGIN {
+    eval q{
+        sub EXISTS
+           {
+           my $self  = shift;
+           my $index = shift;
+           return exists $self->[$index];
+           }
+    } if $] >= 5.006;    # couldn't do "exists" on arrays before then
+}
 
-sub EXTEND
-	{
-	croak "Attempt to modify a readonly array";
-	}
-
-eval q{
-sub EXISTS
-	{
-	my $self  = shift;
-	my $index = shift;
-	return exists $self->[$index];
-	}
-} if $] >= 5.006;    # couldn't do "exists" on arrays before then
-
-sub CLEAR
-	{
-	croak "Attempt to modify a readonly array";
-	}
-
-sub PUSH
-	{
-	croak "Attempt to modify a readonly array";
-	}
-
-sub UNSHIFT
-	{
-	croak "Attempt to modify a readonly array";
-	}
-
-sub POP
-	{
-	croak "Attempt to modify a readonly array";
-	}
-
-sub SHIFT
-	{
-	croak "Attempt to modify a readonly array";
-	}
-
-sub SPLICE
-	{
-	croak "Attempt to modify a readonly array";
-	}
-
-sub UNTIE
-	{
-	croak "Attempt to modify a readonly array";
-	}
+*STORE = *STORESIZE = *EXTEND = *PUSH = *POP = *UNSHIFT = *SHIFT = *SPLICE = *CLEAR = *UNTIE =
+    sub {Readonly::croak "Attempt to modify a readonly array"};
 
 
 # ----------------
 # Read-only hashes
 # ----------------
 package Readonly::Hash;
-use Carp;
 
 sub TIEHASH
-	{
-	my $class = shift;
+{
+    my $class = shift;
 
-	# must have an even number of values
-	unless (@_ %2 == 0)
-		{
-		croak "May not store an odd number of values in a hash";
-		}
-	my %self = @_;
-	return bless \%self, $class;
-	}
+    # must have an even number of values
+    Readonly::croak "May not store an odd number of values in a hash" unless (@_ %2 == 0);
+
+    my %self = @_;
+    return bless \%self, $class;
+}
 
 sub FETCH
-	{
-	my $self = shift;
-	my $key  = shift;
+{
+    my $self = shift;
+    my $key  = shift;
 
-	return $self->{$key};
-	}
-
-sub STORE
-	{
-	croak "Attempt to modify a readonly hash";
-	}
-
-sub DELETE
-	{
-	croak "Attempt to modify a readonly hash";
-	}
-
-sub CLEAR
-	{
-	croak "Attempt to modify a readonly hash";
-	}
+    return $self->{$key};
+}
 
 sub EXISTS
-	{
-	my $self = shift;
-	my $key  = shift;
-	return exists $self->{$key};
-	}
+{
+    my $self = shift;
+    my $key  = shift;
+    return exists $self->{$key};
+}
 
 sub FIRSTKEY
-	{
-	my $self = shift;
-	my $dummy = keys %$self;
-	return scalar each %$self;
-	}
+{
+    my $self = shift;
+    my $dummy = keys %$self;
+    return scalar each %$self;
+}
 
 sub NEXTKEY
-	{
-	my $self = shift;
-	return scalar each %$self;
-	}
+{
+    my $self = shift;
+    return scalar each %$self;
+}
 
-sub UNTIE
-	{
-	croak "Attempt to modify a readonly hash";
-	}
+*STORE = *DELETE = *CLEAR = *UNTIE =
+    sub {Readonly::croak "Attempt to modify a readonly hash"};
 
 
 # ----------------------------------------------------------------
@@ -204,12 +133,11 @@ sub UNTIE
 # have to explicitly tie the variables themselves).
 # ----------------------------------------------------------------
 package Readonly;
-use Carp;
 use Exporter;
 use vars qw/@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS/;
 push @ISA, 'Exporter';
 push @EXPORT, qw/Readonly/;
-push @EXPORT_OK, qw/Scalar Array Hash Tree/;
+push @EXPORT_OK, qw/Scalar Array Hash Scalar1 Array1 Hash1/;
 
 # Predeclare the following, so we can use them recursively
 sub Scalar ($$);
@@ -217,130 +145,127 @@ sub Array (\@;@);
 sub Hash (\%;@);
 
 
+# Shallow Readonly scalar
 sub Scalar1 ($$)
-	{
-	return tie $_[0], 'Readonly::Scalar', $_[1];
-	}
+{
+    return tie $_[0], 'Readonly::Scalar', $_[1];
+}
 
 # Shallow Readonly array
 sub Array1 (\@;@)
-	{
-	my $aref = shift;
-	return tie @$aref, 'Readonly::Array', @_;
-	}
+{
+    my $aref = shift;
+    return tie @$aref, 'Readonly::Array', @_;
+}
 
 # Shallow Readonly hash
 sub Hash1 (\%;@)
-	{
-	my $href = shift;
+{
+    my $href = shift;
 
-	# If only one value, and it's a hashref, expand it
-	if (@_ == 1  &&  ref $_[0] eq 'HASH')
-		{
-		return tie %$href, 'Readonly::Hash', %{$_[0]};
-		}
+    # If only one value, and it's a hashref, expand it
+    if (@_ == 1  &&  ref $_[0] eq 'HASH')
+    {
+        return tie %$href, 'Readonly::Hash', %{$_[0]};
+    }
 
-	# otherwise, must have an even number of values
-	unless (@_ %2 == 0)
-		{
-		croak "May not store an odd number of values in a hash";
-		}
+    # otherwise, must have an even number of values
+    croak "May not store an odd number of values in a hash" unless (@_%2 == 0);
 
-	return tie %$href, 'Readonly::Hash', @_;
-	}
+    return tie %$href, 'Readonly::Hash', @_;
+}
 
+# Deep Readonly scalar
 sub Scalar ($$)
-	{
-	my $value = $_[1];
+{
+    my $value = $_[1];
 
-	# Recursively check passed element for references; if any, make them Readonly
-	foreach ($value)
-		{
-		if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
-		elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
-		elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
-		}
+    # Recursively check passed element for references; if any, make them Readonly
+    foreach ($value)
+    {
+        if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
+        elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
+        elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
+    }
 
-	return tie $_[0], 'Readonly::Scalar', $value;
-	}
+    return tie $_[0], 'Readonly::Scalar', $value;
+}
 
-# Deep Readonly Array
+# Deep Readonly array
 sub Array (\@;@)
-	{
-	my $aref = shift;
-	my @values = @_;
+{
+    my $aref = shift;
+    my @values = @_;
 
-	# Recursively check passed elements for references; if any, make them Readonly
-	foreach (@values)
-		{
-		if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
-		elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
-		elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
-		}
-	# Lastly, tie the passed reference
-	return tie @$aref, 'Readonly::Array', @values;
-	}
+    # Recursively check passed elements for references; if any, make them Readonly
+    foreach (@values)
+    {
+        if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
+        elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
+        elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
+    }
+    # Lastly, tie the passed reference
+    return tie @$aref, 'Readonly::Array', @values;
+}
 
-# Deep Readonly Hash
+# Deep Readonly hash
 sub Hash (\%;@)
-	{
-	my $href = shift;
-	my @values = @_;
+{
+    my $href = shift;
+    my @values = @_;
 
-	# If only one value, and it's a hashref, expand it
-	if (@_ == 1  &&  ref $_[0] eq 'HASH')
-		{
-		@values = %{$_[0]};
-		}
+    # If only one value, and it's a hashref, expand it
+    if (@_ == 1  &&  ref $_[0] eq 'HASH')
+    {
+        @values = %{$_[0]};
+    }
 
-	# otherwise, must have an even number of values
-	unless (@values %2 == 0)
-		{
-		croak "May not store an odd number of values in a hash";
-		}
+    # otherwise, must have an even number of values
+    croak "May not store an odd number of values in a hash" unless (@values %2 == 0);
 
-	# Recursively check passed elements for references; if any, make them Readonly
-	foreach (@values)
-		{
-		if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
-		elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
-		elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
-		}
+    # Recursively check passed elements for references; if any, make them Readonly
+    foreach (@values)
+    {
+        if    (ref eq 'SCALAR') {Scalar my $v => $$_; $_ = \$v}
+        elsif (ref eq 'ARRAY')  {Array  my @v => @$_; $_ = \@v}
+        elsif (ref eq 'HASH')   {Hash   my %v => $_;  $_ = \%v}
+    }
 
-	return tie %$href, 'Readonly::Hash', @values;
-	}
+    return tie %$href, 'Readonly::Hash', @values;
+}
 
 
+# Common entry-point for all supported data types
 sub Readonly
-	{
-	if (ref $_[0] eq 'SCALAR')
-		{
-		croak "Readonly scalar must have only one value" if @_ > 2;
-		return tie ${$_[0]}, 'Readonly::Scalar', $_[1];
-		}
-	elsif (ref $_[0] eq 'ARRAY')
-		{
-		my $aref = shift;
-		return Array @$aref, @_;
-		}
-	elsif (ref $_[0] eq 'HASH')
-		{
-		my $href = shift;
-		if (@_%2 != 0  &&  !(@_ == 1  && ref $_[0] eq 'HASH'))
-			{
-			croak "May not store an odd number of values in a hash";
-			}
-		return Hash %$href, @_;
-		}
-	elsif (ref $_[0])
-		{
-		croak "Readonly only supports scalar, array, and hash variables.";
-		}
-	else
-		{
-		croak "First argument to Readonly must be a reference.";
-		}
-	}
+{
+    if (ref $_[0] eq 'SCALAR')
+    {
+        croak "Readonly scalar must have only one value" if @_ > 2;
+        return tie ${$_[0]}, 'Readonly::Scalar', $_[1];
+    }
+    elsif (ref $_[0] eq 'ARRAY')
+    {
+        my $aref = shift;
+        return Array @$aref, @_;
+    }
+    elsif (ref $_[0] eq 'HASH')
+    {
+        my $href = shift;
+        if (@_%2 != 0  &&  !(@_ == 1  && ref $_[0] eq 'HASH'))
+        {
+            croak "May not store an odd number of values in a hash";
+        }
+        return Hash %$href, @_;
+    }
+    elsif (ref $_[0])
+    {
+        croak "Readonly only supports scalar, array, and hash variables.";
+    }
+    else
+    {
+        croak "First argument to Readonly must be a reference.";
+    }
+}
 
 
 1;
@@ -352,7 +277,7 @@ Readonly - Facility for creating read-only scalars, arrays, hashes.
 
 =head1 VERSION
 
-This documentation describes version 0.06 of Readonly.pm, June 16, 2002.
+This documentation describes version 0.07 of Readonly.pm, June 25, 2002.
 
 =head1 SYNOPSIS
 
