@@ -1,5 +1,9 @@
 Revision history for Perl extension Readonly.
 
+1.00  2003 January 7
+	- No code changes.  No bugs or suggestions have been reported
+	  for six months, so the version number is changing to 1.00.
+
 0.07  2002 June 25
 	- Clean up the code somewhat; remove redundancies; delay
 	   loading Carp.pm until it's needed.

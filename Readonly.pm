@@ -1,9 +1,15 @@
+=for gpg
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+=cut
+
 # Package for defining constants of various types
 
 use 5.005;
 use strict;
 package Readonly;
-$Readonly::VERSION = 0.07;    # Also change in the documentation!
+$Readonly::VERSION = 1.00;    # Also change in the documentation!
 
 # Autocroak (Thanks, MJD)
 # Only load Carp.pm if module is croaking.
@@ -277,7 +283,7 @@ Readonly - Facility for creating read-only scalars, arrays, hashes.
 
 =head1 VERSION
 
-This documentation describes version 0.07 of Readonly.pm, June 25, 2002.
+This documentation describes version 1.00 of Readonly.pm, January 7, 2003.
 
 =head1 SYNOPSIS
 
@@ -567,7 +573,7 @@ deeply-Readonly data structures (21 May 2002).
 
 Eric J. Roode, eric@myxa.com
 
-Copyright (c) 2001-2002 by Eric J. Roode. All Rights Reserved.  This module
+Copyright (c) 2001-2003 by Eric J. Roode. All Rights Reserved.  This module
 is free software; you can redistribute it and/or modify it under the
 same terms as Perl itself.
 
@@ -575,5 +581,16 @@ If you have suggestions for improvement, please drop me a line.  If
 you make improvements to this software, I ask that you please send me
 a copy of your changes. Thanks.
 
-
 =cut
+
+=begin gpg
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (SunOS)
+
+iD8DBQE+G0vcY96i4h5M0egRAnYbAJ9wNdqrZpED+u+/g8p1sfIwa1ueSwCg14jK
+TTZmk/vw+Vly+21P74Ra+lc=
+=jmoW
+-----END PGP SIGNATURE-----
+
+=end gpg
