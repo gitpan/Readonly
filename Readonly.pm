@@ -2,25 +2,28 @@
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
+- -----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
 =head1 NAME
 
 Readonly - Facility for creating read-only scalars, arrays, hashes.
 
 =head1 VERSION
 
-This documentation describes version 1.02 of Readonly.pm, May 3, 2003.
+This documentation describes version 1.03 of Readonly.pm, April 20, 2004.
 
 =cut
 
 # Rest of documentation is after __END__.
 
-use 5.000;
+use 5.005;
 use strict;
-use warnings;
-no warnings 'uninitialized';
+#use warnings;
+#no warnings 'uninitialized';
 
 package Readonly;
-$Readonly::VERSION = 1.02;    # Also change in the documentation!
+$Readonly::VERSION = '1.03';    # Also change in the documentation!
 
 # Autocroak (Thanks, MJD)
 # Only load Carp.pm if module is croaking.
@@ -54,7 +57,7 @@ package Readonly::Scalar;
 sub TIESCALAR
 {
     my $whence = (caller 2)[3];    # Check if naughty user is trying to tie directly.
-    Readonly::croak "Invalid tie"  unless $whence =~ /^Readonly::(?:Scalar1?|Readonly)$/;
+    Readonly::croak "Invalid tie"  unless $whence && $whence =~ /^Readonly::(?:Scalar1?|Readonly)$/;
     my $class = shift;
     Readonly::croak "No value specified for readonly scalar"        unless @_;
     Readonly::croak "Too many values specified for readonly scalar" unless @_ == 1;
@@ -332,7 +335,7 @@ sub Hash (\%;@)
 
 
 # Common entry-point for all supported data types
-sub Readonly
+eval q{sub Readonly} . ( $] < 5.008 ? '' : '(\[$@%]@)' ) . <<'SUB_READONLY';
 {
     if (ref $_[0] eq 'SCALAR')
     {
@@ -370,6 +373,7 @@ sub Readonly
         croak "First argument to Readonly must be a reference.";
     }
 }
+SUB_READONLY
 
 
 1;
@@ -402,9 +406,17 @@ __END__
  $sca = 7;
  push @arr, 'seven';
  delete $has{key};
-# The error message is "Modification of a read-only value attempted"
+ # The error message is "Modification of a read-only value
+attempted"
 
- # Alternate form:
+ # Alternate form (Perl 5.8 and later)
+ Readonly    $sca => $initial_value;
+ Readonly my $sca => $initial_value;
+ Readonly    @arr => @values;
+ Readonly my @arr => @values;
+ Readonly    %has => (key => value, key => value, ...);
+ Readonly my %has => (key => value, key => value, ...);
+ # Alternate form (for Perls earlier than v5.8)
  Readonly    \$sca => $initial_value;
  Readonly \my $sca => $initial_value;
  Readonly    \@arr => @values;
@@ -597,12 +609,12 @@ of values to it.  Thereafter, none of its values may be changed; the
 array may not be lengthened or shortened or spliced.  Any attempt to
 do so will cause your program to die.
 
-If any of the values passed is a reference to a scalar, array, or hash, then
-this function will mark the scalar, array, or hash it points to as
-being Readonly as well, and it will recursively traverse the
-structure, marking the whole thing as Readonly.  Usually, this is what
-you want.  However, if you want only the hash C<%@arr> itself marked as
-Readonly, use C<Array1>.
+If any of the values passed is a reference to a scalar, array, or hash,
+then this function will mark the scalar, array, or hash it points to as
+being Readonly as well, and it will recursively traverse the structure,
+marking the whole thing as Readonly.  Usually, this is what you want.
+However, if you want only the hash C<%@arr> itself marked as Readonly,
+use C<Array1>.
 
 If @arr is already a Readonly variable, the program will die with
 an error about reassigning Readonly variables.
@@ -630,21 +642,30 @@ Readonly, use C<Hash1>.
 If %h is already a Readonly variable, the program will die with
 an error about reassigning Readonly variables.
 
-=item Readonly \$var => $value;
+=item Readonly $var => $value;
 
-=item Readonly \@arr => (value, value, ...);
+=item Readonly @arr => (value, value, ...);
 
-=item Readonly \%h => (key => value, ...);
+=item Readonly %h => (key => value, ...);
 
-=item Readonly \%h => {key => value, ...};
+=item Readonly %h => {key => value, ...};
 
 The C<Readonly> function is an alternate to the C<Scalar>, C<Array>,
 and C<Hash> functions.  It has the advantage (if you consider it an
 advantage) of being one function.  That may make your program look
 neater, if you're initializing a whole bunch of constants at once.
-You may or may not prefer this uniform style.  It has the disadvantage
-of requiring a reference as its first parameter, so you have to supply
-a backslash.  You may or may not consider this ugly.
+You may or may not prefer this uniform style.
+
+It has the disadvantage of having a slightly different syntax for
+versions of Perl prior to 5.8.  For earlier versions, you must supply
+a backslash, because it requires a reference as the first parameter.
+
+  Readonly \$var => $value;
+  Readonly \@arr => (value, value, ...);
+  Readonly \%h => (key => value, ...);
+  Readonly \%h => {key => value, ...};
+
+You may or may not consider this ugly.
 
 =item Readonly::Scalar1 $var => $value;
 
@@ -741,39 +762,42 @@ you like:
 
 =head1 ACKNOWLEDGEMENTS
 
-Thanks to Slaven Rezic for the idea of one common function (Readonly)
-for all three types of variables (13 April 2002).
+Thanks to Slaven Rezic for the idea of one common function
+(Readonly) for all three types of variables (13 April 2002).
 
 Thanks to Ernest Lergon for the idea (and initial code) for
 deeply-Readonly data structures (21 May 2002).
+
+Thanks to Damian Conway for the idea (and code) for making the
+Readonly function work a lot smoother under perl 5.8+.
 
 
 =head1 AUTHOR / COPYRIGHT
 
 Eric J. Roode, roode@cpan.org
 
-Copyright (c) 2001-2003 by Eric J. Roode. All Rights Reserved.  This module
-is free software; you can redistribute it and/or modify it under the
-same terms as Perl itself.
+Copyright (c) 2001-2004 by Eric J. Roode. All Rights Reserved.  This
+module is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
 
 If you have suggestions for improvement, please drop me a line.  If
 you make improvements to this software, I ask that you please send me
 a copy of your changes. Thanks.
 
 Readonly.pm is made from 100% recycled electrons.  No animals were
-harmed during the development and testing of this module.  Not sold in
-stores!  Readonly::XS sold separately.  Void where prohibited.
+harmed during the development and testing of this module.  Not sold
+in stores!  Readonly::XS sold separately.  Void where prohibited.
 
 =cut
 
 =begin gpg
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
+Version: GnuPG v1.2.4 (MingW32)
 
-iD8DBQE+wOPKY96i4h5M0egRAj9vAKCTxpwmJY5mqIVIB4xOZvxSZ9ESIgCgiwhU
-EKyBFp7cmyz4oDG0U+2WS4Q=
-=X0Nn
+iD8DBQFAhaGCY96i4h5M0egRAg++AJ0ar4ncojbOp0OOc2wo+E/1cBn5cQCg9eP9
+qTzAC87PuyKB+vrcRykrDbo=
+=39Ny
 -----END PGP SIGNATURE-----
 
-=end gpg
+=cut

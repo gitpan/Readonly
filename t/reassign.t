@@ -3,17 +3,10 @@
 # Readonly reassignment-prevention tests
 
 use strict;
-use Test::More tests => 16;
+use Test::More tests => 22;
 
 # Find the module (1 test)
 BEGIN {use_ok('Readonly'); }
-
-sub expected
-{
-    my $line = shift;
-    $@ =~ s/\.$//;   # difference between croak and die
-    return "Modification of a read-only value attempted at " . __FILE__ . " line $line\n";
-}
 
 use vars qw($s1 @a1 %h1 $s2 @a2 %h2);
 
@@ -41,30 +34,66 @@ ok eq_hash(\%h1, {a => 'hash', of => 'things'}) => 'Readonly::Hash reassign no e
 
 # Now use the naked Readonly function
 
-Readonly \$s2 => 'another scalar value';
-Readonly \@a2 => 'another', 'array', 'value';
-Readonly \%h2 => {another => 'hash', of => 'things'};
+SKIP:
+{
+	skip 'Readonly \\ syntax is for perls earlier than 5.8', 7  if $] >= 5.008;
 
-# Reassign scalar
-eval {Readonly \$s2 => "something bad!"};
-like $@ => $err, 'Readonly Scalar reassign die';
-is $s2 => 'another scalar value', 'Readonly Scalar reassign no effect';
+	eval q{
+		Readonly \$s2 => 'another scalar value';
+		Readonly \@a2 => 'another', 'array', 'value';
+		Readonly \%h2 => {another => 'hash', of => 'things'};
+	};
 
-# Reassign array
-eval {Readonly \@a2 => "something", "bad", "!"};
-like $@ => $err, 'Readonly Array reassign die';
-ok eq_array(\@a2, [qw[another array value]]) => 'Readonly Array reassign no effect';
+	# Reassign scalar
+	eval q{Readonly \$s2 => "something bad!"};
+	like $@ => $err, 'Readonly Scalar reassign die';
+	is $s2 => 'another scalar value', 'Readonly Scalar reassign no effect';
 
-# Reassign hash
-eval {Readonly \%h2 => {another => "bad", hash => "!"}};
-like $@ => $err, 'Readonly Hash reassign die';
-ok eq_hash(\%h2, {another => 'hash', of => 'things'}) => 'Readonly Hash reassign no effect';
+	# Reassign array
+	eval q{Readonly \@a2 => "something", "bad", "!"};
+	like $@ => $err, 'Readonly Array reassign die';
+	ok eq_array(\@a2, [qw[another array value]]) => 'Readonly Array reassign no effect';
+
+	# Reassign hash
+	eval q{Readonly \%h2 => {another => "bad", hash => "!"}};
+	like $@ => $err, 'Readonly Hash reassign die';
+	ok eq_hash(\%h2, {another => 'hash', of => 'things'}) => 'Readonly Hash reassign no effect';
+
+	# Reassign real constant
+	eval q{Readonly \"scalar" => "vector"};
+	like $@ => qr/^Modification of a read-only value attempted at \(eval \d+\),? line 1/, 'Reassign indirect via ref';
+};
+
+SKIP:
+{
+	skip 'Readonly $@% syntax is for perl 5.8 or later', 6  unless $] >= 5.008;
+
+	eval q{
+		Readonly $s2 => 'another scalar value';
+		Readonly @a2 => 'another', 'array', 'value';
+		Readonly %h2 => {another => 'hash', of => 'things'};
+	};
+
+	# Reassign scalar
+	eval q{Readonly $s2 => "something bad!"};
+	like $@ => $err, 'Readonly Scalar reassign die';
+	is $s2 => 'another scalar value', 'Readonly Scalar reassign no effect';
+
+	# Reassign array
+	eval q{Readonly @a2 => "something", "bad", "!"};
+	like $@ => $err, 'Readonly Array reassign die';
+	ok eq_array(\@a2, [qw[another array value]]) => 'Readonly Array reassign no effect';
+
+	# Reassign hash
+	eval q{Readonly %h2 => {another => "bad", hash => "!"}};
+	like $@ => $err, 'Readonly Hash reassign die';
+	ok eq_hash(\%h2, {another => 'hash', of => 'things'}) => 'Readonly Hash reassign no effect';
+};
 
 
 # Reassign real constants
-eval {Readonly::Scalar "hello" => "goodbye"};
+eval q{Readonly::Scalar "hello" => "goodbye"};
 like $@ => $err, 'Reassign real string';
-eval {Readonly::Scalar1 6 => 13};
+eval q{Readonly::Scalar1 6 => 13};
 like $@ => $err, 'Reassign real number';
-eval {Readonly \"scalar" => "vector"};
-is $@ => expected(__LINE__-1),, 'Reassign indirect via ref';
+

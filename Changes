@@ -1,5 +1,17 @@
 Revision history for Perl extension Readonly.
 
+1.03  2004 April 20
+	- Changed the prototype for Readonly, to make the usage cleaner.
+	 Unfortunately, this breaks backwards-compatability for this
+	 function.  Users of this function who have Perl 5.8 or later
+	 will have to change their source code.  Also, users of this
+	 function who upgrade to perl 5.8+ will have to change their
+	 usage.  Having discussed this feature change with a number of
+	 people, I felt that breaking compatability was worth the gain
+	 in simplicity of usage.
+	 (Thanks to Damian Conway for the suggestion).
+	 - Removed "use warnings" so the module will work in perl 5.005.
+
 1.02  2003 May 13
 	- If Readonly::XS is installed, Readonly will use it for
 	   making scalars read-only.

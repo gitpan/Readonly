@@ -1,14 +1,10 @@
-Readonly version 1.02
+Readonly version 1.03
 =====================
 
-CHANGES FROM VERSION 1.01  (See "Changes" file for details)
+CHANGES FROM VERSION 1.02  (See "Changes" file for details)
 
-o Vast speed improvements for scalar variables, if the companion
-  module Readonly::XS (available separately on CPAN) is installed.
-
-o Handles certain invalid user actions better.
-
-o Error messages have changed to be more like Perl's.
+o Syntax of Readonly() function has changed, for users of
+  Perl 5.8 and later.
 
 
 DESCRIPTION
@@ -86,7 +82,7 @@ COPYRIGHT AND LICENSE
 
 Eric J. Roode, roode@cpan.org
 
-Copyright (c) 2001-2003 by Eric J. Roode. All Rights Reserved.  This module
+Copyright (c) 2001-2004 by Eric J. Roode. All Rights Reserved.  This module
 is free software; you can redistribute it and/or modify it under the
 same terms as Perl itself.
 
