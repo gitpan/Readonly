@@ -4,7 +4,12 @@ use strict;
 
 #use warnings;
 #no warnings 'uninitialized';
-use version; our $VERSION = version->declare("v1.04.0");
+use Exporter;
+use vars qw/@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS/;
+push @ISA,       'Exporter';
+push @EXPORT,    qw/Readonly/;
+push @EXPORT_OK, qw/Scalar Array Hash Scalar1 Array1 Hash1/;
+our $VERSION = '1.04';
 
 # Autocroak (Thanks, MJD)
 # Only load Carp.pm if module is croaking.
@@ -27,118 +32,10 @@ $ODDHASH  = 'May not store an odd number of values in a hash';
 # See if we can use the XS stuff.
 eval 'use Readonly::XS';
 
-# ----------------
-# Read-only scalars
-# ----------------
-package Readonly::Scalar;
-
-sub TIESCALAR {
-    my $whence
-        = (caller 2)[3];    # Check if naughty user is trying to tie directly.
-    Readonly::croak "Invalid tie"
-        unless $whence && $whence =~ /^Readonly::(?:Scalar1?|Readonly)$/;
-    my $class = shift;
-    Readonly::croak "No value specified for readonly scalar" unless @_;
-    Readonly::croak "Too many values specified for readonly scalar"
-        unless @_ == 1;
-    my $value = shift;
-    return bless \$value, $class;
-}
-
-sub FETCH {
-    my $self = shift;
-    return $$self;
-}
-*STORE = *UNTIE = sub { Readonly::croak $Readonly::MODIFY};
-
-# ----------------
-# Read-only arrays
-# ----------------
-package Readonly::Array;
-
-sub TIEARRAY {
-    my $whence
-        = (caller 1)[3];    # Check if naughty user is trying to tie directly.
-    Readonly::croak "Invalid tie" unless $whence =~ /^Readonly::Array1?$/;
-    my $class = shift;
-    my @self  = @_;
-    return bless \@self, $class;
-}
-
-sub FETCH {
-    my $self  = shift;
-    my $index = shift;
-    return $self->[$index];
-}
-
-sub FETCHSIZE {
-    my $self = shift;
-    return scalar @$self;
-}
-
-BEGIN {
-    eval q{
-        sub EXISTS {
-           my $self  = shift;
-           my $index = shift;
-           return exists $self->[$index];
-           }
-    } if $] >= 5.006;    # couldn't do "exists" on arrays before then
-}
-*STORE = *STORESIZE = *EXTEND = *PUSH = *POP = *UNSHIFT = *SHIFT = *SPLICE
-    = *CLEAR = *UNTIE = sub { Readonly::croak $Readonly::MODIFY};
-
-# ----------------
-# Read-only hashes
-# ----------------
-package Readonly::Hash;
-
-sub TIEHASH {
-    my $whence
-        = (caller 1)[3];    # Check if naughty user is trying to tie directly.
-    Readonly::croak "Invalid tie" unless $whence =~ /^Readonly::Hash1?$/;
-    my $class = shift;
-
-    # must have an even number of values
-    Readonly::croak $Readonly::ODDHASH unless (@_ % 2 == 0);
-    my %self = @_;
-    return bless \%self, $class;
-}
-
-sub FETCH {
-    my $self = shift;
-    my $key  = shift;
-    return $self->{$key};
-}
-
-sub EXISTS {
-    my $self = shift;
-    my $key  = shift;
-    return exists $self->{$key};
-}
-
-sub FIRSTKEY {
-    my $self  = shift;
-    my $dummy = keys %$self;
-    return scalar each %$self;
-}
-
-sub NEXTKEY {
-    my $self = shift;
-    return scalar each %$self;
-}
-*STORE = *DELETE = *CLEAR = *UNTIE = sub { Readonly::croak $Readonly::MODIFY};
-
-# ----------------------------------------------------------------
-# Main package, containing convenience functions (so callers won't
-# have to explicitly tie the variables themselves).
-# ----------------------------------------------------------------
-package Readonly;
-use Exporter;
-use vars qw/@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS/;
-push @ISA,       'Exporter';
-push @EXPORT,    qw/Readonly/;
-push @EXPORT_OK, qw/Scalar Array Hash Scalar1 Array1 Hash1/;
+# Include specialized tie modules
+require Readonly::Array;
+require Readonly::Hash;
+require Readonly::Scalar;
 
 # Predeclare the following, so we can use them recursively
 sub Scalar ($$);
