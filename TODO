@@ -1,0 +1,17 @@
+current
+  discourage constructs built to support old (5.5.0, 5.6.0) versions of perl
+
+v1.4.5-v1.6.x
+  documentation clean up and updates
+  resolve issues in RT (no more than one or two related per PAUSE'd revision)
+
+v1.7.0
+  depreciate constructs built to support old (5.5.0, 5.6.0) versions of perl
+  discourage constructs built to support old (5.8.0) versions of perl
+
+v1.9.0
+  remove constructs built to support old (5.5.0, 5.6.0) versions of perl
+  depreciate constructs built to support old (5.8.0) versions of perl
+
+v2.0.0
+  remove constructs built to support old (5.8.0) versions of perl
