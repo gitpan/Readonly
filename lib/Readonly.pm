@@ -7,7 +7,7 @@ use vars qw/@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS/;
 push @ISA,       'Exporter';
 push @EXPORT,    qw/Readonly/;
 push @EXPORT_OK, qw/Scalar Array Hash Scalar1 Array1 Hash1/;
-our $VERSION = 'v1.5.0';
+our $VERSION = '1.005_000';
 $VERSION = eval $VERSION;
 
 # Autocroak (Thanks, MJD)

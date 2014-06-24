@@ -56,25 +56,7 @@
          }
       }
    },
-   "provides" : {
-      "Readonly" : {
-         "file" : "lib/Readonly.pm",
-         "version" : "v1.5.0"
-      },
-      "Readonly::Array" : {
-         "file" : "lib/Readonly.pm",
-         "version" : "1.05"
-      },
-      "Readonly::Hash" : {
-         "file" : "lib/Readonly.pm",
-         "version" : "1.05"
-      },
-      "Readonly::Scalar" : {
-         "file" : "lib/Readonly.pm",
-         "version" : "1.05"
-      }
-   },
-   "release_status" : "stable",
+   "release_status" : "unstable",
    "resources" : {
       "bugtracker" : {
          "web" : "https://github.com/sanko/readonly/issues"
@@ -85,7 +67,7 @@
          "web" : "https://github.com/sanko/readonly"
       }
    },
-   "version" : "v1.5.0",
+   "version" : "1.005_000",
    "x_contributors" : [
       "David Steinbrunner <dsteinbrunner@pobox.com>"
    ]

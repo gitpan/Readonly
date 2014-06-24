@@ -1,6 +1,6 @@
 Revision history for Perl extension Readonly.
 
-v1.5.0 2014-06-24T23:07:39Z
+1.005_000 2014-06-24T23:15:53Z
     - PLEASE NOTE: Readonly::XS is no longer needed!
 	- Again, Readonly::XS is no longer needed.
 	- Merged typo fix from David Steinbrunner RT#86350/#2
