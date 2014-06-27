@@ -1,5 +1,11 @@
 Revision history for Perl extension Readonly.
 
+1.60 2014-06-27T15:59:27Z
+    - Fix array and hash tie() while in XS mode (exposed by Params::Validate tests)
+    - Fix implicit undef value regression resolves #8
+    - Minor documentation fixes (spell check, etc.)
+    - Patch from Gregor Herrmann <gregoa@debian.org> resolves #7
+
 v1.500.0 2014-06-25T19:56:18Z
     - PLEASE NOTE: Readonly::XS is no longer needed!
     - Again, Readonly::XS is no longer needed.

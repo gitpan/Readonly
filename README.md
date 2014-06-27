@@ -38,6 +38,7 @@ Readonly - Facility for creating read-only scalars, arrays, hashes
     Readonly my @arr => @values;
     Readonly    %has => (key => value, key => value, ...);
     Readonly my %has => (key => value, key => value, ...);
+    Readonly my $sca; # Implicit undef, readonly value
 
     # Alternate form (for Perls earlier than v5.8)
     Readonly    \$sca => $initial_value;
@@ -217,6 +218,7 @@ higher. Please see section entitled [Internals](#internals) for more.
 - Readonly @arr => (value, value, ...);
 - Readonly %h => (key => value, ...);
 - Readonly %h => {key => value, ...};
+- Readonly $var;
 
     The `Readonly` function is an alternate to the `Scalar`, `Array`, and
     `Hash` functions. It has the advantage (if you consider it an advantage) of
@@ -224,9 +226,9 @@ higher. Please see section entitled [Internals](#internals) for more.
     initializing a whole bunch of constants at once. You may or may not prefer
     this uniform style.
 
-    It has the disadvantage of having a slightly different syntax for
-    versions of Perl prior to 5.8.  For earlier versions, you must supply
-    a backslash, because it requires a reference as the first parameter.
+    It has the disadvantage of having a slightly different syntax for versions of
+    Perl prior to 5.8.  For earlier versions, you must supply a backslash, because
+    it requires a reference as the first parameter.
 
         Readonly \$var => $value;
         Readonly \@arr => (value, value, ...);
@@ -234,6 +236,10 @@ higher. Please see section entitled [Internals](#internals) for more.
         Readonly \%h   => {key => value, ...};
 
     You may or may not consider this ugly.
+
+    Note that you can create implicit undefined variables with this function like
+    so `Readonly my $var;` while a verbose undefined value must be passed to the
+    standard `Scalar`, `Array`, and `Hash` functions.
 
 - Readonly::Scalar1 $var => $value;
 - Readonly::Array1 @arr => (value, value, ...);
@@ -333,7 +339,7 @@ To 'fix' this, Readonly::XS was written. If installed, Readonly::XS used the
 internal methods `SvREADONLY` and `SvREADONLY_on` to lock simple scalars. On
 the surface, everything was peachy but things weren't the same behind the
 scenes. In edge cases, code perfromed very differently if Readonly::XS was
-installed and because it wasn't a required dependancy in most code, it made
+installed and because it wasn't a required dependency in most code, it made
 downstream bugs very hard to track.
 
 In the years since Readonly::XS was released, the then private internal
@@ -343,7 +349,7 @@ longer need to build and install another module to make Readonly useful on
 modern builds of perl.
 
 - You do not need to install Readonly::XS.
-- You should stop listing Readonly::XS as a dependancy or expect it to
+- You should stop listing Readonly::XS as a dependency or expect it to
 be installed.
 - Stop testing the `$Readonly::XSokay` variable!
 
@@ -366,7 +372,7 @@ http://github.com/sanko/readonly/issues.
 Please check the TODO file included with this distribution in case your bug
 is already known (...I probably won't file bug reports to myself).
 
-# Acknowladgements
+# Acknowledgements
 
 Thanks to Slaven Rezic for the idea of one common function (Readonly) for all
 three types of variables (13 April 2002).

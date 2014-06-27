@@ -1,13 +1,11 @@
 package Readonly;
+use 5.005;
 use strict;
 
 #use warnings;
-use Exporter;
-use vars qw/@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS/;
-push @ISA,       'Exporter';
-push @EXPORT,    qw/Readonly/;
-push @EXPORT_OK, qw/Scalar Array Hash Scalar1 Array1 Hash1/;
-our $VERSION = 'v1.500.0';
+#no warnings 'uninitialized';
+package Readonly;
+our $VERSION = '1.60';
 $VERSION = eval $VERSION;
 
 # Autocroak (Thanks, MJD)
@@ -17,11 +15,7 @@ sub croak {
     goto &Carp::croak;
 }
 
-# Common error messages, or portions thereof
-use vars qw/$MODIFY $REASSIGN $ODDHASH/;
-$MODIFY   = 'Modification of a read-only value attempted';
-$REASSIGN = 'Attempt to reassign a readonly';
-$ODDHASH  = 'May not store an odd number of values in a hash';
+# These functions may be overridden by Readonly::XS, if installed.
 use vars qw/$XSokay/;    # Set to true in Readonly::XS, if available
 
 # For perl 5.8.x or higher
@@ -44,113 +38,125 @@ else {               # Modern perl doesn't need Readonly::XS
     $XSokay = 1;     # We're using the new built-ins so this is a white lie
 }
 
-# Include specialized tie modules for 'Classic' perl
-{
+# Common error messages, or portions thereof
+use vars qw/$MODIFY $REASSIGN $ODDHASH/;
+$MODIFY   = 'Modification of a read-only value attempted';
+$REASSIGN = 'Attempt to reassign a readonly';
+$ODDHASH  = 'May not store an odd number of values in a hash';
 
-    package Readonly::Array;
-    our $VERSION = '1.05';
+# ----------------
+# Read-only scalars
+# ----------------
+package Readonly::Scalar;
 
-    sub TIEARRAY {
-        my $whence
-            = (caller 1)[3]
-            ;        # Check if naughty user is trying to tie directly.
-        Readonly::croak "Invalid tie" unless $whence =~ /^Readonly::Array1?$/;
-        my $class = shift;
-        my @self  = @_;
-        return bless \@self, $class;
-    }
+sub TIESCALAR {
+    my $whence
+        = (caller 2)[3];    # Check if naughty user is trying to tie directly.
+    Readonly::croak "Invalid tie"
+        unless $whence && $whence =~ /^Readonly::(?:Scalar1?|Readonly)$/;
+    my $class = shift;
+    Readonly::croak "No value specified for readonly scalar" unless @_;
+    Readonly::croak "Too many values specified for readonly scalar"
+        unless @_ == 1;
+    my $value = shift;
+    return bless \$value, $class;
+}
 
-    sub FETCH {
-        my $self  = shift;
-        my $index = shift;
-        return $self->[$index];
-    }
+sub FETCH {
+    my $self = shift;
+    return $$self;
+}
+*STORE = *UNTIE = sub { Readonly::croak $Readonly::MODIFY};
 
-    sub FETCHSIZE {
-        my $self = shift;
-        return scalar @$self;
-    }
+# ----------------
+# Read-only arrays
+# ----------------
+package Readonly::Array;
 
-    BEGIN {
-        eval q{
-        sub EXISTS {
+sub TIEARRAY {
+    my $whence
+        = (caller 1)[3];    # Check if naughty user is trying to tie directly.
+    Readonly::croak "Invalid tie" unless $whence =~ /^Readonly::Array1?$/;
+    my $class = shift;
+    my @self  = @_;
+    return bless \@self, $class;
+}
+
+sub FETCH {
+    my $self  = shift;
+    my $index = shift;
+    return $self->[$index];
+}
+
+sub FETCHSIZE {
+    my $self = shift;
+    return scalar @$self;
+}
+
+BEGIN {
+    eval q{
+        sub EXISTS
+           {
            my $self  = shift;
            my $index = shift;
            return exists $self->[$index];
            }
     } if $] >= 5.006;    # couldn't do "exists" on arrays before then
-    }
-    *STORE = *STORESIZE = *EXTEND = *PUSH = *POP = *UNSHIFT = *SHIFT = *SPLICE
-        = *CLEAR = *UNTIE = sub { Readonly::croak $Readonly::MODIFY};
 }
-{
+*STORE = *STORESIZE = *EXTEND = *PUSH = *POP = *UNSHIFT = *SHIFT = *SPLICE
+    = *CLEAR = *UNTIE = sub { Readonly::croak $Readonly::MODIFY};
 
-    package Readonly::Hash;
-    our $VERSION = '1.05';
+# ----------------
+# Read-only hashes
+# ----------------
+package Readonly::Hash;
 
-    sub TIEHASH {
-        my $whence
-            = (caller 1)[3]
-            ;    # Check if naughty user is trying to tie directly.
-        Readonly::croak "Invalid tie" unless $whence =~ /^Readonly::Hash1?$/;
-        my $class = shift;
+sub TIEHASH {
+    my $whence
+        = (caller 1)[3];    # Check if naughty user is trying to tie directly.
+    Readonly::croak "Invalid tie" unless $whence =~ /^Readonly::Hash1?$/;
+    my $class = shift;
 
-        # must have an even number of values
-        Readonly::croak $Readonly::ODDHASH unless (@_ % 2 == 0);
-        my %self = @_;
-        return bless \%self, $class;
-    }
-
-    sub FETCH {
-        my $self = shift;
-        my $key  = shift;
-        return $self->{$key};
-    }
-
-    sub EXISTS {
-        my $self = shift;
-        my $key  = shift;
-        return exists $self->{$key};
-    }
-
-    sub FIRSTKEY {
-        my $self  = shift;
-        my $dummy = keys %$self;
-        return scalar each %$self;
-    }
-
-    sub NEXTKEY {
-        my $self = shift;
-        return scalar each %$self;
-    }
-    *STORE = *DELETE = *CLEAR = *UNTIE
-        = sub { Readonly::croak $Readonly::MODIFY};
+    # must have an even number of values
+    Readonly::croak $Readonly::ODDHASH unless (@_ % 2 == 0);
+    my %self = @_;
+    return bless \%self, $class;
 }
-{
 
-    package Readonly::Scalar;
-    our $VERSION = '1.05';
-
-    sub TIESCALAR {
-        my $whence
-            = (caller 2)[3]
-            ;    # Check if naughty user is trying to tie directly.
-        Readonly::croak "Invalid tie"
-            unless $whence && $whence =~ /^Readonly::(?:Scalar1?|Readonly)$/;
-        my $class = shift;
-        Readonly::croak "No value specified for readonly scalar" unless @_;
-        Readonly::croak "Too many values specified for readonly scalar"
-            unless @_ == 1;
-        my $value = shift;
-        return bless \$value, $class;
-    }
-
-    sub FETCH {
-        my $self = shift;
-        return $$self;
-    }
-    *STORE = *UNTIE = sub { Readonly::croak $Readonly::MODIFY};
+sub FETCH {
+    my $self = shift;
+    my $key  = shift;
+    return $self->{$key};
 }
+
+sub EXISTS {
+    my $self = shift;
+    my $key  = shift;
+    return exists $self->{$key};
+}
+
+sub FIRSTKEY {
+    my $self  = shift;
+    my $dummy = keys %$self;
+    return scalar each %$self;
+}
+
+sub NEXTKEY {
+    my $self = shift;
+    return scalar each %$self;
+}
+*STORE = *DELETE = *CLEAR = *UNTIE = sub { Readonly::croak $Readonly::MODIFY};
+
+# ----------------------------------------------------------------
+# Main package, containing convenience functions (so callers won't
+# have to explicitly tie the variables themselves).
+# ----------------------------------------------------------------
+package Readonly;
+use Exporter;
+use vars qw/@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS/;
+push @ISA,       'Exporter';
+push @EXPORT,    qw/Readonly/;
+push @EXPORT_OK, qw/Scalar Array Hash Scalar1 Array1 Hash1/;
 
 # Predeclare the following, so we can use them recursively
 sub Scalar ($$);
@@ -284,28 +290,45 @@ sub Hash (\%;@) {
 }
 
 # Common entry-point for all supported data types
-eval q{sub Readonly} . ($] < 5.008 ? '' : '(\[$@%]@)') . <<'#SUB_READONLY';
-{   my $ref = shift;
-    my $type = ref $ref;
-    if ((!defined$type) || $type eq 'SCALAR') {
-        croak 'Not enough arguments for Readonly' if $#_ == -1;
-        return Scalar $$ref, shift;
+eval q{sub Readonly} . ($] < 5.008 ? '' : '(\[$@%]@)') . <<'SUB_READONLY';
+{
+    if (ref $_[0] eq 'SCALAR')
+    {
+        croak $MODIFY if is_sv_readonly ${$_[0]};
+        my $badtype = _is_badtype (ref tied ${$_[0]});
+        croak "$REASSIGN $badtype" if $badtype;
+        croak "Readonly scalar must have only one value" if @_ > 2;
+
+        my $tieobj = eval {tie ${$_[0]}, 'Readonly::Scalar', $_[1]};
+        # Tie may have failed because user tried to tie a constant, or we screwed up somehow.
+        if ($@)
+        {
+            croak $MODIFY if $@ =~ /^$MODIFY at/;    # Point the finger at the user.
+            die "$@\n";        # Not a modify read-only message; must be our fault.
+        }
+        return $tieobj;
     }
-    elsif ($type eq 'ARRAY') {
-        return Array @$ref, @_;
+    elsif (ref $_[0] eq 'ARRAY')
+    {
+        my $aref = shift;
+        return Array @$aref, @_;
     }
-    elsif ($type eq 'HASH') {
-        croak $ODDHASH if @_ % 2 != 0 && !(@_ == 1 && $type eq 'HASH');
-        return Hash %$ref, @_;
+    elsif (ref $_[0] eq 'HASH')
+    {
+        my $href = shift;
+        croak $ODDHASH  if @_%2 != 0  &&  !(@_ == 1  && ref $_[0] eq 'HASH');
+        return Hash %$href, @_;
     }
-    elsif ($type) {
+    elsif (ref $_[0])
+    {
         croak "Readonly only supports scalar, array, and hash variables.";
     }
-    else {
+    else
+    {
         croak "First argument to Readonly must be a reference.";
     }
 }
-#SUB_READONLY
+SUB_READONLY
 1;
 
 =head1 NAME
@@ -348,6 +371,7 @@ Readonly - Facility for creating read-only scalars, arrays, hashes
     Readonly my @arr => @values;
     Readonly    %has => (key => value, key => value, ...);
     Readonly my %has => (key => value, key => value, ...);
+    Readonly my $sca; # Implicit undef, readonly value
 
     # Alternate form (for Perls earlier than v5.8)
     Readonly    \$sca => $initial_value;
@@ -543,15 +567,17 @@ about reassigning Readonly variables.
 
 =item Readonly %h => {key => value, ...};
 
+=item Readonly $var;
+
 The C<Readonly> function is an alternate to the C<Scalar>, C<Array>, and
 C<Hash> functions. It has the advantage (if you consider it an advantage) of
 being one function. That may make your program look neater, if you're
 initializing a whole bunch of constants at once. You may or may not prefer
 this uniform style.
 
-It has the disadvantage of having a slightly different syntax for
-versions of Perl prior to 5.8.  For earlier versions, you must supply
-a backslash, because it requires a reference as the first parameter.
+It has the disadvantage of having a slightly different syntax for versions of
+Perl prior to 5.8.  For earlier versions, you must supply a backslash, because
+it requires a reference as the first parameter.
 
     Readonly \$var => $value;
     Readonly \@arr => (value, value, ...);
@@ -559,6 +585,10 @@ a backslash, because it requires a reference as the first parameter.
     Readonly \%h   => {key => value, ...};
 
 You may or may not consider this ugly.
+
+Note that you can create implicit undefined variables with this function like
+so C<Readonly my $var;> while a verbose undefined value must be passed to the
+standard C<Scalar>, C<Array>, and C<Hash> functions.
 
 =item Readonly::Scalar1 $var => $value;
 
@@ -663,7 +693,7 @@ To 'fix' this, Readonly::XS was written. If installed, Readonly::XS used the
 internal methods C<SvREADONLY> and C<SvREADONLY_on> to lock simple scalars. On
 the surface, everything was peachy but things weren't the same behind the
 scenes. In edge cases, code perfromed very differently if Readonly::XS was
-installed and because it wasn't a required dependancy in most code, it made
+installed and because it wasn't a required dependency in most code, it made
 downstream bugs very hard to track.
 
 In the years since Readonly::XS was released, the then private internal
@@ -676,7 +706,7 @@ modern builds of perl.
 
 =item * You do not need to install Readonly::XS.
 
-=item * You should stop listing Readonly::XS as a dependancy or expect it to
+=item * You should stop listing Readonly::XS as a dependency or expect it to
 be installed.
 
 =item * Stop testing the C<$Readonly::XSokay> variable!
@@ -702,7 +732,7 @@ http://github.com/sanko/readonly/issues.
 Please check the TODO file included with this distribution in case your bug
 is already known (...I probably won't file bug reports to myself).
 
-=head1 Acknowladgements
+=head1 Acknowledgements
 
 Thanks to Slaven Rezic for the idea of one common function (Readonly) for all
 three types of variables (13 April 2002).
