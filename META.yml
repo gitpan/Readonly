@@ -28,7 +28,7 @@ no_index:
 provides:
   Readonly:
     file: lib/Readonly.pm
-    version: '1.60'
+    version: '1.61'
   Readonly::Array:
     file: lib/Readonly.pm
   Readonly::Hash:
@@ -43,6 +43,6 @@ resources:
   bugtracker: https://github.com/sanko/readonly/issues
   homepage: https://github.com/sanko/readonly
   repository: git://github.com/sanko/readonly.git
-version: '1.60'
+version: '1.61'
 x_contributors:
   - 'David Steinbrunner <dsteinbrunner@pobox.com>'
