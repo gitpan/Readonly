@@ -1,5 +1,10 @@
 Revision history for Perl extension Readonly.
 
+2.00 2014-06-30T11:15:05Z
+    - Deprecation of Readonly::XS as a requirement for fast, readonly
+      scalars is complete. Report any lingering issues on the tracker
+      ASAP.
+
 1.61 2014-06-28T11:22:13Z
     - Normal constants (strings, numbers) do not appear to be read only to
       Internals::SvREADONLY($) but perl itself doesn't miss a beat when you

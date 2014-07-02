@@ -1,7 +1,6 @@
 Changes
 LICENSE
 README.md
-TODO
 cpanfile
 eg/benchmark.pl
 lib/Readonly.pm

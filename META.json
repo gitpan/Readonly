@@ -59,7 +59,7 @@
    "provides" : {
       "Readonly" : {
          "file" : "lib/Readonly.pm",
-         "version" : "1.61"
+         "version" : "2.00"
       },
       "Readonly::Array" : {
          "file" : "lib/Readonly.pm"
@@ -82,7 +82,7 @@
          "web" : "https://github.com/sanko/readonly"
       }
    },
-   "version" : "1.61",
+   "version" : "2.00",
    "x_contributors" : [
       "David Steinbrunner <dsteinbrunner@pobox.com>"
    ]
